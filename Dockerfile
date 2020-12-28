@@ -3,6 +3,7 @@ ENV PYTHONUNBUFFERED=1
 ENV RUN_IN_DOCKER Yes
 
 RUN mkdir /app
+RUN mkdir /app/nginx
 WORKDIR /app
 ADD requirements.txt /app
 RUN apk add --no-cache \
