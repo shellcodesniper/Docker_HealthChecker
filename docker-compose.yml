@@ -1,0 +1,44 @@
+version: "3.9"
+services:
+  backend_master:
+    image: "ilsamhz/multi_mall_back:latest"
+    container_name: backend_master
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8000/api/v1/common/codes"]
+      interval: 5s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  backend_slave:
+    image: "ilsamhz/multi_mall_back:latest"
+    container_name: backend_slave
+    ports:
+      - "8001:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/common/codes"]
+      interval: 5s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  backend_rollback:
+    image: "ilsamhz/multi_mall_back:rollback"
+    container_name: backend_rollback
+    ports:
+      - "8002:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/common/codes"]
+      interval: 5s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+
+  front:
+    image: "ilsamhz/multi_mall_front:latest"
+    container_name: frontend
+    ports:
+      - "3000:3000"
