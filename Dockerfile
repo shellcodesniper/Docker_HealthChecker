@@ -1,4 +1,4 @@
-FROM alpine:3.11 as alpine
+FROM alpine:3.12 as alpine
 ENV PYTHONUNBUFFERED=1
 ENV RUN_IN_DOCKER=yes
 ENV DEBUG_MODE=no

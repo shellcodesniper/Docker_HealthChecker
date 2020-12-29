@@ -185,7 +185,10 @@ if (CHECK_POOL):
 else:
   os.system("docker-compose -f /app/docker-compose.yml up --build -d")
 
-
+if (DEBUG_MODE):
+  print("NGINX DEFAULT.CONF 삭제 & 재시작")
+os.system("docker exec {} docker exec nginx rm /etc/nginx/conf.d/default.conf".format(CURRENT_CONTAINER_NAME))
+os.system("docker-compose -f /app/docker-compose.yml up -d --no-deps --no-build nginx")
 
 
 print ('\n'*100)
