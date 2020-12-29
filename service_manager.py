@@ -49,11 +49,14 @@ class Service():
       print('오류입니다. 컨테이너 level은 master, slave, rollback 중 하나여야만 합니다. config.ini 파일을 확인하여주세요.')
       os._exit(0)
   
-  def burnup_master_slave_container(self):
+  def burnup_container(self):
     # ! master, slave container를 깨웁니다.
-    print ('MASTER, SLAVE를 깨웁니다.')
+    print('BURNUP MASTER')
     os.system('docker-compose -f /app/docker-compose.yml up -d --no-deps --no-build {}'.format(self.master['service_name']))
+    print('BURNUP SLAVE')
     os.system('docker-compose -f /app/docker-compose.yml up -d --no-deps --no-build {}'.format(self.slave['service_name']))
+    print('BURNUP ROLLBACK')
+    os.system('docker-compose -f /app/docker-compose.yml up -d --no-deps --no-build {}'.format(self.rollback['service_name']))
 
   def get_container_name_list(self):
     return list(set(self.registeredDict.keys()))
@@ -121,6 +124,7 @@ class Service():
     for container_name in self.get_container_name_list():
       container = self.get_container_from_container_name(container_name)
       if(container is not None):
+        print (container_name)
         c = self.client.containers.get(container['id'])
         try:
           # print(c.attrs['State']) # ! 컨테이너의 State 부분

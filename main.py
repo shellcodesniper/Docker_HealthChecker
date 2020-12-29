@@ -17,6 +17,7 @@ config = parser.CONFIGURE
 USE_CUSTOM_DOCKER = bool(str(config["기본"]["도커모드"]).lower().count('yes') > 0)
 MANAUL_AUTH = bool(str(config["기본"]["도커허브로그인정보제공"]).lower().count('yes') > 0)
 SLEEP_TIME = int(config['기본']['확인주기'])
+BURNUP_TIME = int(config['기본']['BURNUP대기시간'])
 USE_NGINX = bool(str(config['기본']['NGINX사용']).lower().count('yes') > 0)
 CURRENT_CONTAINER_NAME = str(config['기본']['현재실행중인컨테이너이름']).strip()
 
@@ -42,14 +43,12 @@ def exit_handler():
     print('NGINX 사용함으로 설정되었으므로, NGINX 컨테이너도 초기화 합니다.')
     try:
       os.system("docker kill nginx")
-      os.system("docker rm nginx")
     except:
       pass
   for service in config["컨테이너"]:
     SERVICE_CONTAINER_NAME = str(config["컨테이너"][service])
     try:
       os.system("docker kill {}".format(SERVICE_CONTAINER_NAME))
-      os.system("docker rm {}".format(SERVICE_CONTAINER_NAME))
     except:
       pass
 
@@ -203,9 +202,11 @@ while True:
   count += 1
   time.sleep(1)
 
-for service in SERVICE_DICT.keys():
-  print ("SERVICE {}의 MASTER, SLAVE를 깨웁니다.".format(service))
-  SERVICE_DICT[service].burnup_master_slave_container()
+# for service in SERVICE_DICT.keys():
+  # print ("SERVICE {}의 MASTER, SLAVE, ROLLBACK를 시작합니다.".format(service))
+  # SERVICE_DICT[service].burnup_container()
+
+time.sleep(BURNUP_TIME)
 
 while True:
   try:
@@ -215,17 +216,18 @@ while True:
       container_hash = container.attrs['Image']
       container_image = container.attrs['Config']['Image']
 
-      # print('ID: {} 컨테이너 이름 : {} IMAGE : {} HASH : {}'.format(container_id, container_name, container_image, container_hash))
+      print('ID: {} 컨테이너 이름 : {} IMAGE : {} HASH : {}'.format(container_id, container_name, container_image, container_hash))
       if container_name in REGISTERED_CONTAINER_KEYS:
         SERVICE_MASTER_NAME = REGISTERED_CONTAINER_DICT[container_name]
         SERVICE_DICT[SERVICE_MASTER_NAME].update_info(
             container_name, container_id, container_hash, container_image)
     # ! 컨테이너 업데이트 ( 재시작시 id 변경되기때문에 )
-  except:
+  except Exception as E:
+    print ("CONTAINER UPDATE_INFO ERROR")
+    print (E)
     pass
   try:
     
-    ENV_STRING_SUM = ''
     HAVE_UPDATE = False
     for SERVICE_KEY in SERVICE_DICT.keys():
       # SERVICE_DICT[SERVICE_KEY].repeat_checker()
@@ -248,7 +250,7 @@ while True:
         with open('/app/docker-compose.yml', 'wt') as FO:
           FO.write(composeData)
       print("*************** NGINX UPDATE!!! **********")
-      print(os.system("docker-compose -f /app/docker-compose.yml up -d --no-deps --build nginx"))
+      os.system("docker-compose -f /app/docker-compose.yml up -d --no-deps --no-build nginx")
       NGINX_UPDATE = False
 
   except KeyboardInterrupt:
