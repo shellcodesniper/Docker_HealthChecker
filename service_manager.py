@@ -7,7 +7,7 @@ DEBUG_MODE = bool(str(os.environ.get('DEBUG_MODE', 'no')).lower().count('yes') >
 
 container_dict = { "id":"", "name": "", 'service_name': "", "hash": "", "image": "", "isRun": False, "healthy": True, "log": "", "fail": False}
 class Service():
-  def __init__(self, name='', client=docker.DockerClient, ENVDICT={}, DEFAULTDICT={}):
+  def __init__(self, name='', client=docker.DockerClient, ENVDICT={}, DEFAULTDICT={}, checkInterval=2):
     self.name = name
     self.client = client
     self.master = copy.deepcopy(container_dict)
@@ -17,7 +17,7 @@ class Service():
     self.DEFAULTDICT = DEFAULTDICT
     self.registeredDict = {}
 
-    self.updateCheckInterval = 2
+    self.updateCheckInterval = checkInterval
     self.updateCheckCounter = self.updateCheckInterval
 
     self.currentEnvironment= {
