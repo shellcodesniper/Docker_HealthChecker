@@ -23,6 +23,7 @@ SLEEP_TIME = int(config['기본']['확인주기'])
 BURNUP_TIME = int(config['기본']['BURNUP대기시간'])
 USE_NGINX = bool(str(config['기본']['NGINX사용']).lower().count('yes') > 0)
 CURRENT_CONTAINER_NAME = str(config['기본']['현재실행중인컨테이너이름']).strip()
+UPDATE_REPEAT_INTERVAL = int(config['기본']['업데이트확인_주기'].strip())
 
 
 def exit_handler():
@@ -140,7 +141,7 @@ for service in config["컨테이너"]:
     }
         
     SERVICE_DICT[SERVICE_MASTER_NAME] = service_manager.Service(
-        name=SERVICE_MASTER_NAME, client=client, ENVDICT=ENVDICT, DEFAULTDICT=DEFAULTDICT)
+        name=SERVICE_MASTER_NAME, client=client, ENVDICT=ENVDICT, DEFAULTDICT=DEFAULTDICT, checkInterval=UPDATE_REPEAT_INTERVAL)
     SERVICE_DICT[SERVICE_MASTER_NAME].register_container(
         level=SERVICE_LEVEL, container_name=SERVICE_CONTAINER_NAME, service_name=service)
     REGISTERED_CONTAINER_DICT[SERVICE_CONTAINER_NAME] = SERVICE_MASTER_NAME
