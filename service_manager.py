@@ -114,10 +114,11 @@ class Service():
       self.set_value('hash', container_hash, level=level)
       self.set_value('image', container_image, level=level)
 
-  def repeat_checker(self):
+  def repeat_checker(self, SERVICE_DICT):
+    self.SERVICE_DICT = SERVICE_DICT
+
     self.update_health()
     self.check_health()
-    
     self.updateCheckCounter -= 1
 
     print ("CHECK UPDATE : {}".format('검사 시작' if self.updateCheckCounter <= 0 else '{}회 이후'.format(self.updateCheckCounter)))
@@ -211,11 +212,36 @@ class Service():
     os.system('docker-compose -f /app/docker-compose.yml up -d --no-deps --build {}'.format(container['name']))
 
   def change_nginx_env(self, container):
+    SERVICE_DICT = self.SERVICE_DICT
     if(self.currentEnvironment[self.ENVDICT["TARGETCONTAINER"]].strip().lower() != container['name'].strip().lower()):
       self.currentEnvironment[self.ENVDICT['TARGETCONTAINER']] = container['name']
       self.currentEnvironment[self.ENVDICT['TARGETPORT']] = self.DEFAULTDICT['TARGETPORT']
       self.currentEnvironment[self.ENVDICT['LISTENPORT']] = self.DEFAULTDICT['LISTENPORT']
-      self.isUpdated = True
+
+      with open('/app/docker-compose-origin.yml', 'rt') as F:
+        composeData = F.read()
+        for SERVICE_KEY in SERVICE_DICT.keys():
+          if(SERVICE_DICT[SERVICE_KEY].DEFAULTDICT['TARGETCONTAINER'].strip() != ''):
+            env = SERVICE_DICT[SERVICE_KEY].currentEnvironment
+            for key in env.keys():
+              composeData = composeData.replace('${' + key.strip() + '}', env[key])
+        with open('/app/docker-compose.yml', 'wt') as FO:
+          FO.write(composeData)
+      print("*************** NGINX UPDATE!!! **********")
+      os.system("docker-compose -f /app/docker-compose.yml up -d --no-deps --no-build nginx")
+      # os.system("docker exec nginx nginx -s reload")if(HAVE_UPDATE):
+      with open('/app/docker-compose-origin.yml', 'rt') as F:
+        composeData = F.read()
+        for SERVICE_KEY in SERVICE_DICT.keys():
+          if(SERVICE_DICT[SERVICE_KEY].DEFAULTDICT['TARGETCONTAINER'].strip() != ''):
+            env = SERVICE_DICT[SERVICE_KEY].currentEnvironment
+            for key in env.keys():
+              composeData = composeData.replace('${' + key.strip() + '}', env[key])
+        with open('/app/docker-compose.yml', 'wt') as FO:
+          FO.write(composeData)
+      print("*************** NGINX UPDATE!!! **********")
+      os.system("docker-compose -f /app/docker-compose.yml up -d --no-deps --no-build nginx")
+      # os.system("docker exec nginx nginx -s reload")
 
   def try_restart(self, container):
     os.system('docker-compose -f /app/docker-compose.yml up -d --force-recreate --no-deps --no-build {}'.format(container['name']))

@@ -256,37 +256,15 @@ while True:
     print ("CONTAINER UPDATE_INFO ERROR")
     print (E)
     pass
+
   try:
-    
     HAVE_UPDATE = False
     for SERVICE_KEY in SERVICE_DICT.keys():
-      # SERVICE_DICT[SERVICE_KEY].repeat_checker()
-      thread = threading.Thread(target=SERVICE_DICT[SERVICE_KEY].repeat_checker)
-      thread.start()
-      thread.join()
-      if (SERVICE_DICT[SERVICE_KEY].haveUpdate()):
-        if DEBUG_MODE:
-          print(SERVICE_DICT[SERVICE_KEY].name, "HAS UPDATE ##")
-        HAVE_UPDATE = True
-        SERVICE_DICT[SERVICE_KEY].finishUpdate()
-    
-    if(HAVE_UPDATE):
-      with open('/app/docker-compose-origin.yml', 'rt') as F:
-        composeData = F.read()
-        for SERVICE_KEY in SERVICE_DICT.keys():
-          if(SERVICE_DICT[SERVICE_KEY].DEFAULTDICT['TARGETCONTAINER'].strip() != ''):
-            env = SERVICE_DICT[SERVICE_KEY].currentEnvironment
-            for key in env.keys():
-              composeData = composeData.replace('${' + key.strip() + '}', env[key])
-        with open('/app/docker-compose.yml', 'wt') as FO:
-          FO.write(composeData)
-      print("*************** NGINX UPDATE!!! **********")
-      os.system("docker-compose -f /app/docker-compose.yml up -d --no-deps --no-build nginx")
-      # os.system("docker exec nginx nginx -s reload")
-      NGINX_UPDATE = False
-
+      SERVICE_DICT[SERVICE_KEY].repeat_checker(SERVICE_DICT)
+      # thread = threading.Thread(target=SERVICE_DICT[SERVICE_KEY].repeat_checker)
+      # thread.start()
   except KeyboardInterrupt:
     print ('EXIT!')
     exit_handler()
-    os._exit(0)
+    os._exit(0)  
   time.sleep(SLEEP_TIME)
