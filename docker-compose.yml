@@ -26,7 +26,7 @@ services:
     image: "ilsamhz/multi_mall_back:latest"
     container_name: backend_master
     environment:
-      - DJANGO_SETTINGS_MODULE='core.settings.staging'
+      - DJANGO_SETTINGS_MODULE=core.settings.staging
     expose:
       - 8000
     restart: "no"
@@ -41,7 +41,7 @@ services:
     image: "ilsamhz/multi_mall_back:latest"
     container_name: backend_slave
     environment:
-      - DJANGO_SETTINGS_MODULE='core.settings.staging'
+      - DJANGO_SETTINGS_MODULE=core.settings.staging
     expose:
       - 8000
     restart: "no"
@@ -56,7 +56,7 @@ services:
     image: "ilsamhz/multi_mall_back:rollback"
     container_name: backend_rollback
     environment:
-      - DJANGO_SETTINGS_MODULE='core.settings.staging'
+      - DJANGO_SETTINGS_MODULE=core.settings.staging
     expose:
       - 8000
     restart: "no"
