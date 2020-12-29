@@ -7,9 +7,14 @@ services:
       - BACKEND_LISTEN_PORT=${BACKEND_LISTEN_PORT}
       - BACKEND_TARGET_CONTAINER=${BACKEND_TARGET_CONTAINER}
       - BACKEND_TARGET_PORT=${BACKEND_TARGET_PORT}
+
+      - FRONTEND_LISTEN_PORT=${FRONTEND_LISTEN_PORT}
+      - FRONTEND_TARGET_CONTAINER=${FRONTEND_TARGET_CONTAINER}
+      - FRONTEND_TARGET_PORT=${FRONTEND_TARGET_PORT}
     ports:
       - "80:80"
       - "443:443"
+      - "8000:8000"
     restart: always
     volumes:
       - /Users/hacker/WorkSpace/B_Personal/Docker_HealthChecker/nginx/templates:/etc/nginx/templates
@@ -20,12 +25,13 @@ services:
   backend_master:
     image: "ilsamhz/multi_mall_back:latest"
     container_name: backend_master
+    environment:
+      - DJANGO_SETTINGS_MODULE='core.settings.staging'
     expose:
       - 8000
     restart: "no"
     healthcheck:
-      # test: ["CMD", "curl", "-f", "http://127.0.0.1:8000/api/v1/common/codes"]
-      test: sh -c 'exit 1'
+      test: sh -c 'curl --fail "http://localhost:8000/api/v1/common/codes" || exit 1'
       interval: 5s
       timeout: 10s
       retries: 3
@@ -34,6 +40,8 @@ services:
   backend_slave:
     image: "ilsamhz/multi_mall_back:latest"
     container_name: backend_slave
+    environment:
+      - DJANGO_SETTINGS_MODULE='core.settings.staging'
     expose:
       - 8000
     restart: "no"
@@ -47,6 +55,8 @@ services:
   backend_rollback:
     image: "ilsamhz/multi_mall_back:rollback"
     container_name: backend_rollback
+    environment:
+      - DJANGO_SETTINGS_MODULE='core.settings.staging'
     expose:
       - 8000
     restart: "no"
