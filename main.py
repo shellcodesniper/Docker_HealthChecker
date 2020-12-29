@@ -177,7 +177,7 @@ with open('/app/docker-compose-origin.yml', 'rt') as F:
   with open('/app/docker-compose.yml', 'wt') as FO:
     FO.write(composeData)
 
-print( os.system("docker-compose -f /app/docker-compose.yml up -d") )
+print( os.system("docker-compose -f /app/docker-compose.yml up -d --build") )
 
 
 
@@ -233,7 +233,7 @@ while True:
       thread.start()
       thread.join()
       if (SERVICE_DICT[SERVICE_KEY].haveUpdate()):
-        print(SERVICE_KEY, "HAS UPDATE")
+        print(SERVICE_DICT[SERVICE_KEY].name, "HAS UPDATE ##")
         HAVE_UPDATE = True
         SERVICE_DICT[SERVICE_KEY].finishUpdate()
     
