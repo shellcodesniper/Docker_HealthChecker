@@ -1,6 +1,8 @@
 FROM alpine:3.11 as alpine
 ENV PYTHONUNBUFFERED=1
-ENV RUN_IN_DOCKER Yes
+ENV RUN_IN_DOCKER=yes
+ENV DEBUG_MODE=no
+ENV CHECK_POOL=no 
 
 RUN mkdir /app
 RUN mkdir /app/nginx
