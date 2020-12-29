@@ -8,7 +8,8 @@ import atexit
 
 
 RUN_IN_DOCKER = os.environ.get('RUN_IN_DOCKER', False)
-DEBUG_MODE = bool(str(os.environ.get('DEBUG_MODE', 'no')).lower().count('yes') > 0)
+DEBUG_MODE = (str(os.environ.get('DEBUG_MODE', 'no')).lower().count('yes') > 0)
+print ("DEBUG MODE : {}".format(DEBUG_MODE))
 CHECK_POOL = bool(str(os.environ.get('CHECK_POOL', 'no')).lower().count('yes') > 0)
 
 
