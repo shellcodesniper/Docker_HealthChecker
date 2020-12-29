@@ -8,6 +8,9 @@ import atexit
 
 
 RUN_IN_DOCKER = os.environ.get('RUN_IN_DOCKER', False)
+DEBUG_MODE = bool(str(os.environ.get('DEBUG_MODE', 'no')).lower().count('yes') > 0)
+CHECK_POOL = bool(str(os.environ.get('CHECK_POOL', 'no')).lower().count('yes') > 0)
+
 
 if (not os.path.isfile('/app/docker-compose-origin.yml')):
   print('docker-compose-origin.yml 파일을 /app/ 에 마운트 해주셔야 합니다.')
@@ -42,13 +45,13 @@ def exit_handler():
   if(USE_NGINX):
     print('NGINX 사용함으로 설정되었으므로, NGINX 컨테이너도 초기화 합니다.')
     try:
-      os.system("docker kill nginx")
+      os.system("docker kill nginx  > /dev/null 2>&1")
     except:
       pass
   for service in config["컨테이너"]:
     SERVICE_CONTAINER_NAME = str(config["컨테이너"][service])
     try:
-      os.system("docker kill {}".format(SERVICE_CONTAINER_NAME))
+      os.system("docker kill {}  > /dev/null 2>&1".format(SERVICE_CONTAINER_NAME))
     except:
       pass
 
@@ -145,8 +148,8 @@ for service in config["컨테이너"]:
 
   print ("서비스가 이미 실행중 혹은 컨테이너에 존재하는경우, 죽이고 삭제 진행. 컨테이너 이름 : [{}]".format(SERVICE_CONTAINER_NAME))
   try:
-    os.system("docker kill {}".format(SERVICE_CONTAINER_NAME))
-    os.system("docker rm {}".format(SERVICE_CONTAINER_NAME))
+    os.system("docker kill {} > /dev/null 2>&1".format(SERVICE_CONTAINER_NAME))
+    os.system("docker rm {}  > /dev/null 2>&1".format(SERVICE_CONTAINER_NAME))
   except:
     pass
 
@@ -154,8 +157,8 @@ for service in config["컨테이너"]:
 if(USE_NGINX):
   print ('NGINX 사용함으로 설정되었으므로, NGINX 컨테이너도 초기화 합니다.')
   try:
-    os.system("docker kill nginx")
-    os.system("docker rm nginx")
+    os.system("docker kill nginx  > /dev/null 2>&1")
+    os.system("docker rm nginx  > /dev/null 2>&1")
   except:
     pass
 
@@ -172,11 +175,15 @@ with open('/app/docker-compose-origin.yml', 'rt') as F:
       env = SERVICE_DICT[SERVICE_KEY].currentEnvironment
       for key in env.keys():
         composeData = composeData.replace('${' + key.strip() + '}', env[key])
-        print(('${' + key.strip() + '}', env[key]))
+        if DEBUG_MODE:
+          print(('${' + key.strip() + '}', env[key]))
   with open('/app/docker-compose.yml', 'wt') as FO:
     FO.write(composeData)
 
-print( os.system("docker-compose -f /app/docker-compose.yml up -d --build") )
+if (CHECK_POOL):
+  os.system("docker-compose -f /app/docker-compose.yml up --build")
+else:
+  os.system("docker-compose -f /app/docker-compose.yml up --build -d")
 
 
 
@@ -202,10 +209,11 @@ while True:
   count += 1
   time.sleep(1)
 
-# for service in SERVICE_DICT.keys():
-  # print ("SERVICE {}의 MASTER, SLAVE, ROLLBACK를 시작합니다.".format(service))
-  # SERVICE_DICT[service].burnup_container()
+for service in SERVICE_DICT.keys():
+  print ("SERVICE {}의 MASTER, SLAVE, ROLLBACK를 시작합니다.".format(service))
+  SERVICE_DICT[service].burnup_container()
 
+print ("BURNUP!!! {}초 대기".format(BURNUP_TIME))
 time.sleep(BURNUP_TIME)
 
 while True:
@@ -235,7 +243,8 @@ while True:
       thread.start()
       thread.join()
       if (SERVICE_DICT[SERVICE_KEY].haveUpdate()):
-        print(SERVICE_DICT[SERVICE_KEY].name, "HAS UPDATE ##")
+        if DEBUG_MODE:
+          print(SERVICE_DICT[SERVICE_KEY].name, "HAS UPDATE ##")
         HAVE_UPDATE = True
         SERVICE_DICT[SERVICE_KEY].finishUpdate()
     
