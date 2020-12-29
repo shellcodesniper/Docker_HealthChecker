@@ -258,7 +258,6 @@ while True:
     pass
 
   try:
-    HAVE_UPDATE = False
     for SERVICE_KEY in SERVICE_DICT.keys():
       SERVICE_DICT[SERVICE_KEY].repeat_checker(SERVICE_DICT)
       # thread = threading.Thread(target=SERVICE_DICT[SERVICE_KEY].repeat_checker)

@@ -212,6 +212,7 @@ class Service():
     os.system('docker-compose -f /app/docker-compose.yml up -d --no-deps --build {}'.format(container['name']))
 
   def change_nginx_env(self, container):
+    print ('call change_nginx')
     SERVICE_DICT = self.SERVICE_DICT
     if(self.currentEnvironment[self.ENVDICT["TARGETCONTAINER"]].strip().lower() != container['name'].strip().lower()):
       self.currentEnvironment[self.ENVDICT['TARGETCONTAINER']] = container['name']
@@ -228,23 +229,11 @@ class Service():
         with open('/app/docker-compose.yml', 'wt') as FO:
           FO.write(composeData)
       print("*************** NGINX UPDATE!!! **********")
-      os.system("docker-compose -f /app/docker-compose.yml up -d --no-deps --no-build nginx")
-      # os.system("docker exec nginx nginx -s reload")if(HAVE_UPDATE):
-      with open('/app/docker-compose-origin.yml', 'rt') as F:
-        composeData = F.read()
-        for SERVICE_KEY in SERVICE_DICT.keys():
-          if(SERVICE_DICT[SERVICE_KEY].DEFAULTDICT['TARGETCONTAINER'].strip() != ''):
-            env = SERVICE_DICT[SERVICE_KEY].currentEnvironment
-            for key in env.keys():
-              composeData = composeData.replace('${' + key.strip() + '}', env[key])
-        with open('/app/docker-compose.yml', 'wt') as FO:
-          FO.write(composeData)
-      print("*************** NGINX UPDATE!!! **********")
-      os.system("docker-compose -f /app/docker-compose.yml up -d --no-deps --no-build nginx")
+      print(os.system("docker-compose -f /app/docker-compose.yml up -d --no-deps --no-build nginx"))
       # os.system("docker exec nginx nginx -s reload")
 
   def try_restart(self, container):
-    os.system('docker-compose -f /app/docker-compose.yml up -d --force-recreate --no-deps --no-build {}'.format(container['name']))
+    os.system('docker-compose -f /app/docker-compose.yml up -d --no-deps --no-build {}'.format(container['name']))
         
   
   def haveUpdate(self):
@@ -287,7 +276,7 @@ class Service():
         self.rollback['last_hash'] = self.rollback['new_hash']
         print(os.system('docker pull {}'.format(self.rollback['image'])))
         print(os.system('docker-compose -f /app/docker-compose.yml pull --no-parallel {}'.format(self.rollback['service_name'])))
-        os.system('docker-compose -f /app/docker-compose.yml up --no-start --force-recreate --build --no-deps {}'.format(self.rollback['service_name']))
+        os.system('docker-compose -f /app/docker-compose.yml up -d --force-recreate --build --no-deps {}'.format(self.rollback['service_name']))
     
     if(update_Dict['master']):
       if DEBUG_MODE:
