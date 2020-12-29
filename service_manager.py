@@ -15,6 +15,9 @@ class Service():
     self.DEFAULTDICT = DEFAULTDICT
     self.registeredDict = {}
 
+    self.updateCheckInterval = 2
+    self.updateCheckCounter = self.updateCheckInterval
+
     self.currentEnvironment= {
       self.ENVDICT["TARGETCONTAINER"]: self.DEFAULTDICT["TARGETCONTAINER"],
       self.ENVDICT["TARGETPORT"]: self.DEFAULTDICT["TARGETPORT"],
@@ -49,8 +52,8 @@ class Service():
   def burnup_master_slave_container(self):
     # ! master, slave container를 깨웁니다.
     print ('MASTER, SLAVE를 깨웁니다.')
-    os.system('docker-compose -f /app/docker-compose.yml up -d --no-deps --build {}'.format(self.master['service_name']))
-    os.system('docker-compose -f /app/docker-compose.yml up -d --no-deps --build {}'.format(self.slave['service_name']))
+    os.system('docker-compose -f /app/docker-compose.yml up -d --no-deps --no-build {}'.format(self.master['service_name']))
+    os.system('docker-compose -f /app/docker-compose.yml up -d --no-deps --no-build {}'.format(self.slave['service_name']))
 
   def get_container_name_list(self):
     return list(set(self.registeredDict.keys()))
@@ -104,7 +107,15 @@ class Service():
   def repeat_checker(self):
     self.update_health()
     self.check_health()
-    print ("CHECK")
+    
+    self.updateCheckCounter -= 1
+
+    print ("CHECK UPDATE : {}".format('검사 시작' if self.updateCheckCounter <= 0 else '{}회 이후'.format(self.updateCheckCounter)))
+
+    if(self.updateCheckCounter <= 0):
+      self.updateCheckCounter = self.updateCheckInterval
+      self.check_update()
+
 
   def update_health(self):
     for container_name in self.get_container_name_list():
@@ -180,11 +191,6 @@ class Service():
   def force_update(self, container):
     os.system('docker-compose -f /app/docker-compose.yml up -d --no-deps --build {}'.format(container['name']))
 
-  def check_update(self, container):
-    container['image']
-    lat = self.client.images.pull(container['image'])
-    print(lat.id, container['hash'])
-
   def change_nginx_env(self, container):
     if(self.currentEnvironment[self.ENVDICT["TARGETCONTAINER"]].strip().lower() != container['name'].strip().lower()):
       self.currentEnvironment[self.ENVDICT['TARGETCONTAINER']] = container['name']
@@ -193,12 +199,57 @@ class Service():
       self.isUpdated = True
 
   def try_restart(self, container):
-    os.system(
-        'docker-compose -f /app/docker-compose.yml up -d --force-recreate --no-deps --build {}'.format(container['name']))
-    
+    os.system('docker-compose -f /app/docker-compose.yml up -d --force-recreate --no-deps --no-build {}'.format(container['name']))
+        
   
   def haveUpdate(self):
     return self.isUpdated
 
   def finishUpdate(self):
     self.isUpdated = False
+  
+  def _check_update(self, container):
+    container['image']
+    lat = self.client.images.pull(container['image'])
+    print(lat.id, container['hash'])
+    if(''.join(lat.id).strip() == ''.join(container['hash']).strip()):
+      print ("업데이트 없음..", container['name'])
+      return False
+    else:
+      print("업데이트 존재!", container['name'])
+      return True
+
+  def check_update(self):
+    update_Dict = {
+      'master': False,
+      'slave': False,
+      'rollback': False,
+    }
+    for container_name in self.get_container_name_list():
+      container = self.get_container_from_container_name(container_name)
+      level = self.get_level_from_container_name(container_name)
+
+      update_Dict[level.strip().lower()] = self._check_update(container)
+    print(update_Dict)
+    if(update_Dict['rollback']):
+      if(self.master['healthy'] == 'healthy' or self.master['healthy'] == 'healthy'):
+        os.system('docker-compose -f /app/docker-compose.yml up --no-start --no-deps --build {}'.format(self.master['service_name']))
+    
+    if(update_Dict['master']):
+      print('master has update slave health:', self.slave['healthy'])
+      if(self.slave['healthy'] == 'healthy'):
+        self.change_nginx_env(self.slave)
+        os.system('docker-compose -f /app/docker-compose.yml up -d --no-deps --build {}'.format(self.master['service_name']))
+      else:
+        self.change_nginx_env(self.rollback)
+        os.system('docker-compose -f /app/docker-compose.yml down --no-deps {} {}'.format(self.master['service_name'], self.slave['service_name']))
+    
+    if(update_Dict['slave']):
+      print('slave has update master health:', self.master['healthy'])
+      if(self.master['healthy'] == 'healthy'):
+        self.change_nginx_env(self.master)
+        os.system('docker-compose -f /app/docker-compose.yml up -d --no-deps --build {}'.format(self.slave['service_name']))
+      else:
+        self.change_nginx_env(self.rollback)
+        os.system('docker-compose -f /app/docker-compose.yml down --no-deps {} {}'.format(self.master['service_name'], self.slave['service_name']))
+    
