@@ -5,9 +5,9 @@ import time
 
 DEBUG_MODE = bool(str(os.environ.get('DEBUG_MODE', 'no')).lower().count('yes') > 0)
 
-container_dict = { "id":"", "name": "", 'service_name': "", "hash": "", "image": "", "isRun": False, "healthy": True, "log": "", "fail": False}
+container_dict = { "id":"", "name": "", 'service_name': "", "hash": "", "last_hash":"", "image": "", "isRun": False, "healthy": True, "log": "", "fail": False}
 class Service():
-  def __init__(self, name='', client=docker.DockerClient, ENVDICT={}, DEFAULTDICT={}, checkInterval=2):
+  def __init__(self, name='', client=docker.DockerClient, ENVDICT={}, DEFAULTDICT={}, checkInterval=2, currentContainer=''):
     self.name = name
     self.client = client
     self.master = copy.deepcopy(container_dict)
@@ -25,6 +25,8 @@ class Service():
       self.ENVDICT["TARGETPORT"]: self.DEFAULTDICT["TARGETPORT"],
       self.ENVDICT["LISTENPORT"]: self.DEFAULTDICT["LISTENPORT"],
     }
+
+    self.CURRENT_CONTAINER_NAME = currentContainer
 
     self.isUpdated = False
 
@@ -130,9 +132,18 @@ class Service():
       container = self.get_container_from_container_name(container_name)
       if(container is not None):
         print (container_name)
-        c = self.client.containers.get(container['id'])
         try:
-          # print(c.attrs['State']) # ! 컨테이너의 State 부분
+          c = self.client.containers.get(container['id'])
+        except:
+          self.set_value('isRun', False, container_name=container_name)
+          self.set_value('healthy', 'dead', container_name=container_name)
+          print ('update_health 컨테이너 죽은듯함. ( 넘기기 )')
+          continue
+        try:
+          # if (DEBUG_MODE):
+          #   print('\n' * 10)
+          #   print(c.attrs) # ! 컨테이너의 State 부분
+          #   print ('\n'* 10)
           isRun = c.attrs['State'].get('Running', False)
           self.set_value('isRun', isRun, container_name=container_name)
           healthy = (c.attrs['State']['Health']['Status'].strip())
@@ -160,9 +171,9 @@ class Service():
         if DEBUG_MODE:
           print ("CONTAINER {}<{}> [{}] 가 HEALTHY 하지 않은이유.".format(container_name, level, container["fail"]))
           print (container["isRun"])
-          print(container["log"].split('\n')[0])
+          print(container["log"].split('\'}')[0])
+          print ("\n"*3)
 
-        # print ("\n"*3)
         if (level == "master" and not self.master["fail"]):
           if DEBUG_MODE:
             print (level, self.master["fail"])
@@ -195,10 +206,6 @@ class Service():
           self.slave["fail"] = False
         elif (level == "rollback"):
           self.rollback["fail"] = False
-    
-
-        
-        self.change_nginx_env(self.slave)
           
   def force_update(self, container):
     os.system('docker-compose -f /app/docker-compose.yml up -d --no-deps --build {}'.format(container['name']))
@@ -221,16 +228,17 @@ class Service():
     self.isUpdated = False
   
   def _check_update(self, container):
-    container['image']
-    lat = self.client.images.pull(container['image'])
-    print(lat.id, container['hash'])
-    if(''.join(lat.id).strip() == ''.join(container['hash']).strip()):
+    lat = self.client.images.get_registry_data(container['image'])
+    if DEBUG_MODE:
+      print(lat.id, container['last_hash'], container['image'])
+    if(''.join(lat.id).strip() == ''.join(container['last_hash']).strip()):
       if DEBUG_MODE:
         print ("업데이트 없음..", container['name'])
       return False
     else:
       if DEBUG_MODE:
         print("업데이트 존재!", container['name'])
+      container['new_hash'] = lat.id
       return True
 
   def check_update(self):
@@ -250,14 +258,20 @@ class Service():
       if DEBUG_MODE:
         print('master {} slave {}'.format(self.master['healthy'], self.slave['healthy']))
       if(self.master['healthy'] == 'healthy' or self.slave['healthy'] == 'healthy'):
-        os.system('docker-compose -f /app/docker-compose.yml up --no-start --no-deps --build {}'.format(self.master['service_name']))
+        self.rollback['last_hash'] = self.rollback['new_hash']
+        print(os.system('docker pull {}'.format(self.rollback['image'])))
+        print(os.system('docker-compose -f /app/docker-compose.yml pull --no-parallel {}'.format(self.rollback['service_name'])))
+        os.system('docker-compose -f /app/docker-compose.yml up --no-start --force-recreate --build --no-deps {}'.format(self.rollback['service_name']))
     
     if(update_Dict['master']):
       if DEBUG_MODE:
         print('master has update slave health:', self.slave['healthy'])
       if(self.slave['healthy'] == 'healthy'):
+        self.master['last_hash'] = self.master['new_hash']
         self.change_nginx_env(self.slave)
-        os.system('docker-compose -f /app/docker-compose.yml up -d --no-deps --build {}'.format(self.master['service_name']))
+        print(os.system('docker pull {}'.format(self.master['image'])))
+        os.system('docker-compose -f /app/docker-compose.yml pull --no-parallel {}'.format(self.master['service_name']))
+        os.system('docker-compose -f /app/docker-compose.yml up -d --force-recreate --build --no-deps {}'.format(self.master['service_name']))
       else:
         self.change_nginx_env(self.rollback)
         os.system('docker-compose -f /app/docker-compose.yml down --no-deps {} {}'.format(self.master['service_name'], self.slave['service_name']))
@@ -266,8 +280,11 @@ class Service():
       if DEBUG_MODE:
         print('slave has update master health:', self.master['healthy'])
       if(self.master['healthy'] == 'healthy'):
+        self.slave['last_hash'] = self.slave['new_hash']
         self.change_nginx_env(self.master)
-        os.system('docker-compose -f /app/docker-compose.yml up -d --no-deps --build {}'.format(self.slave['service_name']))
+        print(os.system('docker pull {}'.format(self.slave['image'])))
+        os.system('docker-compose -f /app/docker-compose.yml pull --no-parallel {}'.format(self.slave['service_name']))
+        os.system('docker-compose -f /app/docker-compose.yml up -d --force-recreate --build --no-deps {}'.format(self.slave['service_name']))
       else:
         self.change_nginx_env(self.rollback)
         os.system('docker-compose -f /app/docker-compose.yml down --no-deps {} {}'.format(self.master['service_name'], self.slave['service_name']))

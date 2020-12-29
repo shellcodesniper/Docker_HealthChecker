@@ -48,14 +48,26 @@ def exit_handler():
     print('NGINX 사용함으로 설정되었으므로, NGINX 컨테이너도 초기화 합니다.')
     try:
       os.system("docker kill nginx  > /dev/null 2>&1")
+      os.system("docker rm nginx  > /dev/null 2>&1")
     except:
       pass
   for service in config["컨테이너"]:
     SERVICE_CONTAINER_NAME = str(config["컨테이너"][service])
     try:
       os.system("docker kill {}  > /dev/null 2>&1".format(SERVICE_CONTAINER_NAME))
+      os.system("docker rm {}  > /dev/null 2>&1".format(SERVICE_CONTAINER_NAME))
     except:
       pass
+  print('docker compose 종료')
+  try:
+    os.system("docker-compose -f /app/docker-compose.yml down")
+  except:
+    pass
+  print ('다음 업데이트를 위하여 이미지 정리')
+  try:
+    os.system("docker image prune -a -f")
+  except:
+    pass
 
 
 atexit.register(exit_handler)
@@ -142,7 +154,7 @@ for service in config["컨테이너"]:
     }
         
     SERVICE_DICT[SERVICE_MASTER_NAME] = service_manager.Service(
-        name=SERVICE_MASTER_NAME, client=client, ENVDICT=ENVDICT, DEFAULTDICT=DEFAULTDICT, checkInterval=UPDATE_REPEAT_INTERVAL)
+        name=SERVICE_MASTER_NAME, client=client, ENVDICT=ENVDICT, DEFAULTDICT=DEFAULTDICT, checkInterval=UPDATE_REPEAT_INTERVAL, currentContainer=CURRENT_CONTAINER_NAME)
     SERVICE_DICT[SERVICE_MASTER_NAME].register_container(
         level=SERVICE_LEVEL, container_name=SERVICE_CONTAINER_NAME, service_name=service)
     REGISTERED_CONTAINER_DICT[SERVICE_CONTAINER_NAME] = SERVICE_MASTER_NAME
@@ -163,6 +175,7 @@ if(USE_NGINX):
     os.system("docker rm nginx  > /dev/null 2>&1")
   except:
     pass
+os.system("docker image prune -a -f")
 
 
 # check_call(['docker-compose', '-f /app/docker-compose.yml', 'up'], stdout=DEVNULL, stderr=STDOUT)
@@ -186,11 +199,6 @@ if (CHECK_POOL):
   os.system("docker-compose -f /app/docker-compose.yml up --build")
 else:
   os.system("docker-compose -f /app/docker-compose.yml up --build -d")
-
-if (DEBUG_MODE):
-  print("NGINX DEFAULT.CONF 삭제 & 재시작")
-os.system("docker exec {} docker exec nginx rm /etc/nginx/conf.d/default.conf".format(CURRENT_CONTAINER_NAME))
-os.system("docker-compose -f /app/docker-compose.yml up -d --no-deps --no-build nginx")
 
 
 print ('\n'*100)
@@ -221,6 +229,15 @@ for service in SERVICE_DICT.keys():
 print ("BURNUP!!! {}초 대기".format(BURNUP_TIME))
 time.sleep(BURNUP_TIME)
 
+for container in client.containers.list():
+  container_name = container.name
+  if container_name in REGISTERED_CONTAINER_KEYS:
+    container_image = container.attrs['Config']['Image']
+    last_hash = (client.images.get_registry_data(container_image)).id
+    SERVICE_MASTER_NAME = REGISTERED_CONTAINER_DICT[container_name]
+    SERVICE_DICT[SERVICE_MASTER_NAME].set_value('last_hash', last_hash, container_name=container_name)
+
+
 while True:
   try:
     for container in client.containers.list():
@@ -228,8 +245,8 @@ while True:
       container_id = container.id
       container_hash = container.attrs['Image']
       container_image = container.attrs['Config']['Image']
-
-      print('ID: {} 컨테이너 이름 : {} IMAGE : {} HASH : {}'.format(container_id, container_name, container_image, container_hash))
+      if (DEBUG_MODE):
+        print('ID: {} 컨테이너 이름 : {} IMAGE : {} HASH : {}'.format(container_id, container_name, container_image, container_hash))
       if container_name in REGISTERED_CONTAINER_KEYS:
         SERVICE_MASTER_NAME = REGISTERED_CONTAINER_DICT[container_name]
         SERVICE_DICT[SERVICE_MASTER_NAME].update_info(
@@ -244,7 +261,7 @@ while True:
     HAVE_UPDATE = False
     for SERVICE_KEY in SERVICE_DICT.keys():
       # SERVICE_DICT[SERVICE_KEY].repeat_checker()
-      thread = threading.Thread(target=SERVICE_DICT[SERVICE_KEY].repeat_checker())
+      thread = threading.Thread(target=SERVICE_DICT[SERVICE_KEY].repeat_checker)
       thread.start()
       thread.join()
       if (SERVICE_DICT[SERVICE_KEY].haveUpdate()):
@@ -265,6 +282,7 @@ while True:
           FO.write(composeData)
       print("*************** NGINX UPDATE!!! **********")
       os.system("docker-compose -f /app/docker-compose.yml up -d --no-deps --no-build nginx")
+      # os.system("docker exec nginx nginx -s reload")
       NGINX_UPDATE = False
 
   except KeyboardInterrupt:
