@@ -247,7 +247,9 @@ class Service():
     if DEBUG_MODE:
       print(update_Dict)
     if(update_Dict['rollback']):
-      if(self.master['healthy'] == 'healthy' or self.master['healthy'] == 'healthy'):
+      if DEBUG_MODE:
+        print('master {} slave {}'.format(self.master['healthy'], self.slave['healthy']))
+      if(self.master['healthy'] == 'healthy' or self.slave['healthy'] == 'healthy'):
         os.system('docker-compose -f /app/docker-compose.yml up --no-start --no-deps --build {}'.format(self.master['service_name']))
     
     if(update_Dict['master']):
