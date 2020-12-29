@@ -115,6 +115,7 @@ class Service():
       self.set_value('image', container_image, level=level)
 
   def repeat_checker(self, SERVICE_DICT):
+    start_time = time.time()
     self.SERVICE_DICT = SERVICE_DICT
 
     self.update_health()
@@ -126,6 +127,9 @@ class Service():
     if(self.updateCheckCounter <= 0):
       self.updateCheckCounter = self.updateCheckInterval
       self.check_update()
+    if (DEBUG_MODE):
+      print("REPEAT_CHECKER SPENT {}s".format(int(time.time()-start_time)))
+    
 
 
   def update_health(self):
