@@ -206,6 +206,7 @@ class Service():
             print ('좀긴급!')
       else:
         if (level == "master"):
+          self.change_nginx_env(self.master)
           self.master["fail"] = False
         elif (level == "slave"):
           self.slave["fail"] = False
