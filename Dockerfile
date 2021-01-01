@@ -9,6 +9,7 @@ RUN mkdir /app/nginx
 WORKDIR /app
 ADD requirements.txt /app
 RUN apk add --no-cache \
+    git \
     ca-certificates \
     tzdata \
     python3 \
@@ -19,8 +20,9 @@ RUN apk add --no-cache \
 
 RUN ln -sf python3 /usr/bin/python
 RUN python3 -m ensurepip
-RUN pip3 install --no-cache --upgrade pip setuptools docker-compose
+RUN pip3 install --upgrade pip setuptools docker-compose
 RUN pip3 install -r requirements.txt
+RUN pip3 install --upgrade --no-deps --force-reinstall git+https://github.com/shellcodesniper/aws_logging_handlers.git
 
 ADD . /app
 
