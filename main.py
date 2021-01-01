@@ -212,8 +212,8 @@ for service in config["컨테이너"]:
 
     service_logger = None
     if(IS_LOGGING):
-      service_logger = logger.create_logger("{}_{}".format(SERVICE_MASTER_NAME,'main'), FORMATTER, ACCESS_KEY, SECRET_KEY, REGION_NAME, bucket=BUCKET, log_name='log',
-                                            log_root=os.path.join(LOG_ROOT,'main'), server_id=SERVER_ID, service_name=SERVICE_MASTER_NAME, max_file_size_bytes=MAX_FILE_SIZE_BYTES, time_rotation=TIME_ROTATION)
+      service_logger = logger.create_logger("{}_{}".format(SERVICE_MASTER_NAME,'MAIN'), FORMATTER, ACCESS_KEY, SECRET_KEY, REGION_NAME, bucket=BUCKET, log_name='log',
+                                            log_root=LOG_ROOT, server_id=SERVER_ID, service_name=os.path.join(SERVICE_MASTER_NAME, 'main'), max_file_size_bytes=MAX_FILE_SIZE_BYTES, time_rotation=TIME_ROTATION)
         
     SERVICE_DICT[SERVICE_MASTER_NAME] = service_manager.Service(
         name=SERVICE_MASTER_NAME, client=client, ENVDICT=ENVDICT, DEFAULTDICT=DEFAULTDICT, checkInterval=UPDATE_REPEAT_INTERVAL, currentContainer=CURRENT_CONTAINER_NAME, isLogging=IS_LOGGING, logger=service_logger)
