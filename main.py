@@ -13,7 +13,9 @@ import io
 
 RUN_IN_DOCKER = os.environ.get('RUN_IN_DOCKER', False)
 DEBUG_MODE = (str(os.environ.get('DEBUG_MODE', 'no')).lower().count('yes') > 0)
+VERBOSE_MODE = (str(os.environ.get('VERBOSE_MODE', 'no')).lower().count('yes') > 0)
 print ("DEBUG MODE : {}".format(DEBUG_MODE))
+print ("VERBOSE MODE : {}".format(VERBOSE_MODE))
 CHECK_POOL = bool(str(os.environ.get('CHECK_POOL', 'no')).lower().count('yes') > 0)
 
 
@@ -55,8 +57,7 @@ if (IS_LOGGING):
   
 
 def main_print(*args, **kwargs):
-  global IS_LOGGING, MAIN_LOGGER
-  print(" ".join(map(str, args)), **kwargs)
+  global IS_LOGGING, MAIN_LOGGER, VERBOSE_MODE
   if IS_LOGGING:
     try:
       with io.StringIO() as F:
@@ -71,6 +72,8 @@ def main_print(*args, **kwargs):
           MAIN_LOGGER.error(output)
     except:
       print("Logging Error")
+  if VERBOSE_MODE:
+    print(" ".join(map(str, args)), **kwargs)
 
 
 

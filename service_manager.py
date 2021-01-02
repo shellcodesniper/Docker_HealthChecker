@@ -41,6 +41,7 @@ if (IS_LOGGING):
 
 
 DEBUG_MODE = bool(str(os.environ.get('DEBUG_MODE', 'no')).lower().count('yes') > 0)
+VERBOSE_MODE = (str(os.environ.get('VERBOSE_MODE', 'no')).lower().count('yes') > 0)
 
 container_dict = { "id":"", "name": "", 'service_name': "", "hash": "", "last_hash":"", "image": "", "isRun": False, "healthy": True, "log": "", "fail": False, "logPath": ''}
 class Service():
@@ -72,8 +73,7 @@ class Service():
     self.print (self.ENVDICT, self.DEFAULTDICT)
   
   def print(self, *args, **kwargs):
-    global IS_LOGGING
-    print(" ".join(map(str, args)), **kwargs)
+    global IS_LOGGING, DEBUG_MODE, VERBOSE_MODE
     if IS_LOGGING:
       with io.StringIO() as F:
         print(" ".join(map(str, args)), **kwargs, file=F)
@@ -85,6 +85,8 @@ class Service():
           self.MAIN_LOGGER.info(output)
         elif(mode == 'error'):
           self.MAIN_LOGGER.error(output)
+    if VERBOSE_MODE:
+      print(" ".join(map(str, args)), **kwargs)
   
   def register_container(self, level='none', container_name='none', service_name='none'):
     global ACCESS_KEY, FORMATTER, SECRET_KEY, REGION_NAME, BUCKET, LOG_ROOT, SERVER_ID, IS_LOGGING
