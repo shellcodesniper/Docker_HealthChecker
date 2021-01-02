@@ -183,7 +183,10 @@ class Service():
     self.SERVICE_DICT = SERVICE_DICT
 
     self.update_health()
-    self.get_log()
+    try:
+      self.get_log()
+    except:
+      pass
     self.check_health()
     self.updateCheckCounter -= 1
 
