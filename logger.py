@@ -30,8 +30,6 @@ def create_logger(logger_name, formatter, ACCESS_KEY, SECRET_KEY, REGION_NAME, b
   #     aws_secret_access_key=SECRET_KEY,
   #     region_name=REGION_NAME
   # )
-
-  bucket = "kuuwang"
   s3_handler = S3Handler(
     log_name, bucket, workers=3,
     log_root=log_root,

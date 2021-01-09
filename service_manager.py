@@ -292,14 +292,33 @@ class Service():
               self.change_nginx_env(self.rollback)
               self.try_restart(self.master)
               self.try_restart(self.slave)
-              self.print ('긴급!')
+              try:
+                reason = '[WARNING] 해당 서버 SLAVE와 MASTER CHECK가 FAIL로 알려졌습니다. ROLLBACK 으 전향합니다.'
+                requests.get('https://api.kuuwang.com/alert?token=mVWUJZqVn65BubaC&server_name={}&server_ip={}&reason={}'.format(SERVER_ID, requests.get('https://api.kuuwang.com/ip').text, reason))
+                self.print('긴급! 관리자 메세지 발송')
+              except:
+                pass
+              self.print ('긴급! 관리자 메세지 발송')
         
         if (level == "rollback" and not self.master["fail"] and self.slave["fail"]):
           self.try_restart(self.rollback)
         elif(level == "rollback" and (self.master["fail"] or self.slave["fail"])):
           if (self.master["fail"] and self.slave["fail"]):
+            try:
+              reason = '[SUPER ALERT] 해당 서버의 ROLLBACK / MASTER / SLAVE 전부 checkstatus FAIL 입니다 빠른 확인이 피요합니다.'
+              requests.get('https://api.kuuwang.com/alert?token=mVWUJZqVn65BubaC&server_name={}&server_ip={}&reason={}'.format(SERVER_ID, requests.get('https://api.kuuwang.com/ip').text, reason))
+              self.print('개긴급! 관리자 메세지 발송')
+            except:
+              pass
             self.print ('개긴급!')
           else:
+            try:
+              reason = '[ALERT] 해당 서버의 ROLLBACK 은 죽었으나 MASTER 혹은 SLAVE 중 하나는 살아있습니다. 5분내에 정상화되지 않을경우 확인이 필요합니다.'
+              requests.get('https://api.kuuwang.com/alert?token=mVWUJZqVn65BubaC&server_name={}&server_ip={}&reason={}'.format(
+                  SERVER_ID, requests.get('https://api.kuuwang.com/ip').text, reason))
+              self.print('좀긴급! 관리자 메세지 발송')
+            except:
+              pass
             self.print ('좀긴급!')
       else:
         if (level == "master"):
@@ -345,18 +364,22 @@ class Service():
     self.isUpdated = False
   
   def _check_update(self, container):
-    lat = self.client.images.get_registry_data(container['image'])
-    if DEBUG_MODE:
-      self.print(lat.id, container['last_hash'], container['image'])
-    if(''.join(lat.id).strip() == ''.join(container['last_hash']).strip()):
+    try:
+      lat = self.client.images.get_registry_data(container['image'])
       if DEBUG_MODE:
-        self.print ("업데이트 없음..", container['name'])
+        self.print(lat.id, container['last_hash'], container['image'])
+      if(''.join(lat.id).strip() == ''.join(container['last_hash']).strip()):
+        if DEBUG_MODE:
+          self.print ("업데이트 없음..", container['name'])
+        return False
+      else:
+        if DEBUG_MODE:
+          self.print("업데이트 존재!", container['name'])
+        container['new_hash'] = lat.id
+        return True
+    except:
+      self.print("업데이트 가져오는도중에 에러발생 다음 update check에서 확인", mode='error')
       return False
-    else:
-      if DEBUG_MODE:
-        self.print("업데이트 존재!", container['name'])
-      container['new_hash'] = lat.id
-      return True
 
   def check_update(self):
     update_Dict = {
