@@ -43,6 +43,14 @@ if (IS_LOGGING):
 DEBUG_MODE = bool(str(os.environ.get('DEBUG_MODE', 'no')).lower().count('yes') > 0)
 VERBOSE_MODE = (str(os.environ.get('VERBOSE_MODE', 'no')).lower().count('yes') > 0)
 
+USE_CRON = False
+try:
+  USE_CRON = bool(str(config["기본"]["USE_CRON"]).lower().count('yes') > 0)
+except Exception as E:
+  print('NO CRON')
+  print(E)
+  pass
+
 container_dict = { "id":"", "name": "", 'service_name': "", "hash": "", "last_hash":"", "image": "", "isRun": False, "healthy": True, "log": "", "fail": False, "logPath": ''}
 class Service():
   def __init__(self, name='', client=docker.DockerClient, ENVDICT={}, DEFAULTDICT={}, checkInterval=2, currentContainer='', isLogging=False, logger=None):
@@ -190,15 +198,24 @@ class Service():
     except:
       pass
     self.check_health()
-    self.updateCheckCounter -= 1
 
-    self.print ("CHECK UPDATE : {}".format('검사 시작' if self.updateCheckCounter <= 0 else '{}회 이후'.format(self.updateCheckCounter)))
-
-    if(self.updateCheckCounter <= 0):
-      self.updateCheckCounter = self.updateCheckInterval
-      self.check_update()
     if (DEBUG_MODE):
       self.print("REPEAT_CHECKER SPENT {}s".format(int(time.time()-start_time)))
+
+  def update_checker(self, SERVICE_DICT):
+    start_time = time.time()
+    self.SERVICE_DICT = SERVICE_DICT
+
+    if(USE_CRON == False):
+      self.updateCheckCounter -= 1
+      if(self.updateCheckCounter <= 0):
+        self.updateCheckCounter = self.updateCheckInterval
+        self.check_update()
+      self.print ("CHECK UPDATE : {}".format('검사 시작' if self.updateCheckCounter <= 0 else '{}회 이후'.format(self.updateCheckCounter)))
+    else:
+      self.check_update()
+    if (DEBUG_MODE):
+      self.print("UPDATE_CHECKER SPENT {}s".format(int(time.time()-start_time)))
     
   def get_log(self):
     logPath = self.master['logPath']
@@ -322,7 +339,8 @@ class Service():
             self.print ('좀긴급!')
       else:
         if (level == "master"):
-          self.change_nginx_env(self.master)
+          if(self.currentEnvironment[self.ENVDICT['TARGETCONTAINER']] != self.master['name']):
+            self.change_nginx_env(self.master)
           self.master["fail"] = False
         elif (level == "slave"):
           self.slave["fail"] = False
@@ -333,7 +351,7 @@ class Service():
     os.system('docker-compose -f /app/docker-compose.yml up -d --no-deps --build {}'.format(container['name']))
 
   def change_nginx_env(self, container):
-    self.print ('call change_nginx')
+    self.print ('call change_nginx [{}]'.format(container['name']))
     SERVICE_DICT = self.SERVICE_DICT
     if(self.currentEnvironment[self.ENVDICT["TARGETCONTAINER"]].strip().lower() != container['name'].strip().lower()):
       self.currentEnvironment[self.ENVDICT['TARGETCONTAINER']] = container['name']
@@ -368,16 +386,20 @@ class Service():
       lat = self.client.images.get_registry_data(container['image'])
       if DEBUG_MODE:
         self.print(lat.id, container['last_hash'], container['image'])
+      
       if(''.join(lat.id).strip() == ''.join(container['last_hash']).strip()):
         if DEBUG_MODE:
           self.print ("업데이트 없음..", container['name'])
         return False
+      
       else:
         if DEBUG_MODE:
           self.print("업데이트 존재!", container['name'])
         container['new_hash'] = lat.id
         return True
-    except:
+
+    except Exception as E:
+      self.print(E, mode='error')
       self.print("업데이트 가져오는도중에 에러발생 다음 update check에서 확인", mode='error')
       return False
 

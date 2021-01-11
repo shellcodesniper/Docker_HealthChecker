@@ -1,4 +1,5 @@
 from aws_logging_handlers.S3 import MAX_FILE_SIZE_BYTES
+from datetime import datetime, timedelta
 import requests
 import parser
 import docker
@@ -9,6 +10,8 @@ import logging
 import logger
 import atexit
 import io
+import threading
+import pycron
    
 
 RUN_IN_DOCKER = os.environ.get('RUN_IN_DOCKER', False)
@@ -42,6 +45,17 @@ MAX_FILE_SIZE_BYTES = 100*1024**2
 TIME_ROTATION = 12*60*60
 HEALTHCHECKER_LOGNAME = 'HEALTHCHECKER'
 MAIN_LOGGER = None
+REPEAT_TIME = 0.01
+
+USE_CRON = False
+CRON_TEXT = ''
+try:
+  USE_CRON = bool(str(config["기본"]["USE_CRON"]).lower().count('yes') > 0)
+  CRON_TEXT = str(config["기본"]["CRON_TEXT"]).strip()
+except Exception as E:
+  print ('NO CRON')
+  print (E)
+  pass
 
 if (IS_LOGGING):
   BUCKET = str(config["LOGGING"]["BUCKET"].strip())
@@ -302,8 +316,22 @@ for container in client.containers.list():
     SERVICE_MASTER_NAME = REGISTERED_CONTAINER_DICT[container_name]
     SERVICE_DICT[SERVICE_MASTER_NAME].set_value('last_hash', last_hash, container_name=container_name)
 
+def repeat_checking():
+  for SERVICE_KEY in SERVICE_DICT.keys():
+    try:
+      SERVICE_DICT[SERVICE_KEY].repeat_checker(SERVICE_DICT)
+    except Exception as E:
+      main_print('repeat_checking에서 에러', mode='error')
+      main_print(E, mode='error')
+def update_checking():
+  for SERVICE_KEY in SERVICE_DICT.keys():
+    try:
+      SERVICE_DICT[SERVICE_KEY].update_checker(SERVICE_DICT)
+    except Exception as E:
+      main_print('update_checking에서 에러', mode='error')
+      main_print(E, mode='error')
 
-while True:
+def repeat_update_docker():
   try:
     for container in client.containers.list():
       container_name = container.name
@@ -311,7 +339,8 @@ while True:
       container_hash = container.attrs['Image']
       container_image = container.attrs['Config']['Image']
       if (DEBUG_MODE):
-        main_print('ID: {} 컨테이너 이름 : {} IMAGE : {} HASH : {}'.format(container_id, container_name, container_image, container_hash))
+        main_print('ID: {} 컨테이너 이름 : {} IMAGE : {} HASH : {}'.format(
+            container_id, container_name, container_image, container_hash))
       if container_name in REGISTERED_CONTAINER_KEYS:
         SERVICE_MASTER_NAME = REGISTERED_CONTAINER_DICT[container_name]
         SERVICE_DICT[SERVICE_MASTER_NAME].update_info(
@@ -320,15 +349,45 @@ while True:
   except Exception as E:
     main_print ("CONTAINER UPDATE_INFO ERROR")
     main_print (E)
-    pass
 
+next_container_check = time.time() + SLEEP_TIME
+next_repeat_check = time.time() + SLEEP_TIME
+next_update_check = (time.time() + (SLEEP_TIME * UPDATE_REPEAT_INTERVAL)) if USE_CRON == False else time.time() + (SLEEP_TIME * 2 + 3)
+
+while True:
   try:
-    for SERVICE_KEY in SERVICE_DICT.keys():
-      SERVICE_DICT[SERVICE_KEY].repeat_checker(SERVICE_DICT)
-      # thread = threading.Thread(target=SERVICE_DICT[SERVICE_KEY].repeat_checker)
-      # thread.start()
+    current_time = time.time()
+    
+    if((current_time - next_container_check) > 0):
+      main_print('DOCKER_INFO_UPDATE [INTERVAL]')
+      next_container_check = current_time + SLEEP_TIME
+      thread = threading.Thread(target=repeat_update_docker)
+      thread.start()
+
+    if((current_time - next_repeat_check) > 0):
+      main_print('REPEAT CHECKER')
+      next_repeat_check = current_time + SLEEP_TIME
+      thread = threading.Thread(target=repeat_checking)
+      thread.start()
+
+
+    if(USE_CRON == True):
+      if(pycron.is_now(CRON_TEXT) and ((current_time - next_update_check) > 0)):
+        main_print('UPDATE CHECK [CRON_TAB]')
+        next_update_check += current_time + 60
+        thread = threading.Thread(target=update_checking)
+        thread.start()
+    elif(((current_time - next_update_check) > 0)):
+      main_print('UPDATE CHECK [INTERVAL]')
+      next_update_check = current_time + (SLEEP_TIME * UPDATE_REPEAT_INTERVAL)
+      thread = threading.Thread(target=update_checking)
+      thread.start()
+      
+    time.sleep(REPEAT_TIME)
+
   except KeyboardInterrupt:
-    main_print ('EXIT!')
+    main_print('EXIT!')
     exit_handler()
-    os._exit(0)  
-  time.sleep(SLEEP_TIME)
+    os._exit(0)
+  except Exception as E:
+    main_print(E, mode='error')
