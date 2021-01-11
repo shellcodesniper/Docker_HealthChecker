@@ -310,7 +310,7 @@ class Service():
               self.try_restart(self.master)
               self.try_restart(self.slave)
               try:
-                reason = '[WARNING] 해당 서버 SLAVE와 MASTER CHECK가 FAIL로 알려졌습니다. ROLLBACK 으 전향합니다.'
+                reason = '[WARNING] 해당 서버 SLAVE와 MASTER CHECK가 FAIL로 알려졌습니다. ROLLBACK 으로 전환합니다.'
                 requests.get('https://api.kuuwang.com/alert?token=mVWUJZqVn65BubaC&server_name={}&server_ip={}&reason={}'.format(SERVER_ID, requests.get('https://api.kuuwang.com/ip').text, reason))
                 self.print('긴급! 관리자 메세지 발송')
               except:
@@ -322,7 +322,7 @@ class Service():
         elif(level == "rollback" and (self.master["fail"] or self.slave["fail"])):
           if (self.master["fail"] and self.slave["fail"]):
             try:
-              reason = '[SUPER ALERT] 해당 서버의 ROLLBACK / MASTER / SLAVE 전부 checkstatus FAIL 입니다 빠른 확인이 피요합니다.'
+              reason = '[SUPER ALERT] 해당 서버의 ROLLBACK/MASTER/SLAVE 전부 FAIL 입니다. 빠른 확인이 필요합니다.'
               requests.get('https://api.kuuwang.com/alert?token=mVWUJZqVn65BubaC&server_name={}&server_ip={}&reason={}'.format(SERVER_ID, requests.get('https://api.kuuwang.com/ip').text, reason))
               self.print('개긴급! 관리자 메세지 발송')
             except:
@@ -330,7 +330,7 @@ class Service():
             self.print ('개긴급!')
           else:
             try:
-              reason = '[ALERT] 해당 서버의 ROLLBACK 은 죽었으나 MASTER 혹은 SLAVE 중 하나는 살아있습니다. 5분내에 정상화되지 않을경우 확인이 필요합니다.'
+              reason = '[ALERT] 해당 서버 ROLLBACK 은 죽었으나 MASTER/SLAVE 중 하나는 살아있습니다. 5분내에 정상화되지 않을경우 확인이 필요합니다.'
               requests.get('https://api.kuuwang.com/alert?token=mVWUJZqVn65BubaC&server_name={}&server_ip={}&reason={}'.format(
                   SERVER_ID, requests.get('https://api.kuuwang.com/ip').text, reason))
               self.print('좀긴급! 관리자 메세지 발송')
