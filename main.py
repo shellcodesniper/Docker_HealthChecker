@@ -338,9 +338,8 @@ def repeat_update_docker():
       container_id = container.id
       container_hash = container.attrs['Image']
       container_image = container.attrs['Config']['Image']
-      if (DEBUG_MODE):
-        main_print('ID: {} 컨테이너 이름 : {} IMAGE : {} HASH : {}'.format(
-            container_id, container_name, container_image, container_hash))
+      # if (DEBUG_MODE):
+      #   main_print('ID: {} 컨테이너 이름 : {} IMAGE : {} HASH : {}'.format(container_id, container_name, container_image, container_hash))
       if container_name in REGISTERED_CONTAINER_KEYS:
         SERVICE_MASTER_NAME = REGISTERED_CONTAINER_DICT[container_name]
         SERVICE_DICT[SERVICE_MASTER_NAME].update_info(
@@ -354,6 +353,11 @@ next_container_check = time.time() + SLEEP_TIME
 next_repeat_check = time.time() + SLEEP_TIME
 next_update_check = (time.time() + (SLEEP_TIME * UPDATE_REPEAT_INTERVAL)) if USE_CRON == False else time.time() + (SLEEP_TIME * 2 + 3)
 
+repeat_update_docker()
+#! docker 정보를 업데이트 해주도록 ( 뭐가 먼저 실행될지 모르니까 !)
+repeat_checking()
+#! docker 정보 다음으로는 repeat checking 업데이트!
+
 while True:
   try:
     current_time = time.time()
@@ -361,6 +365,7 @@ while True:
     if((current_time - next_container_check) > 0):
       main_print('DOCKER_INFO_UPDATE [INTERVAL]')
       next_container_check = current_time + SLEEP_TIME
+      repeat_update_docker()
       thread = threading.Thread(target=repeat_update_docker)
       thread.start()
 
@@ -374,7 +379,7 @@ while True:
     if(USE_CRON == True):
       if(pycron.is_now(CRON_TEXT) and ((current_time - next_update_check) > 0)):
         main_print('UPDATE CHECK [CRON_TAB]')
-        next_update_check += current_time + 60
+        next_update_check = current_time + 60
         thread = threading.Thread(target=update_checking)
         thread.start()
     elif(((current_time - next_update_check) > 0)):

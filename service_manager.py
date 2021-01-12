@@ -203,6 +203,7 @@ class Service():
       self.print("REPEAT_CHECKER SPENT {}s".format(int(time.time()-start_time)))
 
   def update_checker(self, SERVICE_DICT):
+    global USE_CRON
     start_time = time.time()
     self.SERVICE_DICT = SERVICE_DICT
 
@@ -213,13 +214,15 @@ class Service():
         self.check_update()
       self.print ("CHECK UPDATE : {}".format('검사 시작' if self.updateCheckCounter <= 0 else '{}회 이후'.format(self.updateCheckCounter)))
     else:
+      self.print ('CHECK UPDATE CRON 바로 시작')
       self.check_update()
     if (DEBUG_MODE):
       self.print("UPDATE_CHECKER SPENT {}s".format(int(time.time()-start_time)))
     
   def get_log(self):
     logPath = self.master['logPath']
-    print ('master LogPath', logPath)
+    # if(DEBUG_MODE):
+      # print ('master LogPath', logPath)
     if(logPath != ''):
       with open(logPath, 'rt') as F:
         for row in F.readlines():
