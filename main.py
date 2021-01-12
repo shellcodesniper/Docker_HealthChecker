@@ -382,9 +382,9 @@ while True:
         next_update_check = current_time + 60
         thread = threading.Thread(target=update_checking)
         thread.start()
-    elif(((current_time - next_update_check) > 0)):
+    elif((current_time - next_update_check) > 0):
       main_print('UPDATE CHECK [INTERVAL]')
-      next_update_check = current_time + (SLEEP_TIME * UPDATE_REPEAT_INTERVAL)
+      next_update_check = current_time + SLEEP_TIME
       thread = threading.Thread(target=update_checking)
       thread.start()
       
