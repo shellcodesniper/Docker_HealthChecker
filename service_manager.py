@@ -8,6 +8,7 @@ import parser
 import threading
 import requests
 import logging
+from termcolor import colored
 
 config = parser.CONFIGURE
 
@@ -64,6 +65,7 @@ class Service():
     self.registeredDict = {}
     self.IS_LOGGING = isLogging
     self.MAIN_LOGGER = logger
+    self.nowUpdating = False
 
     self.updateCheckInterval = checkInterval
     self.updateCheckCounter = self.updateCheckInterval
@@ -94,7 +96,9 @@ class Service():
         elif(mode == 'error'):
           self.MAIN_LOGGER.error(output)
     if VERBOSE_MODE:
-      print(" ".join(map(str, args)))
+      color_pick = kwargs.get('color', 'white')
+      color_attr = kwargs.get('color_attr', [])
+      print(colored(" ".join(map(str, args)), color=color_pick, attrs=color_attr))
   
   def register_container(self, level='none', container_name='none', service_name='none'):
     global ACCESS_KEY, FORMATTER, SECRET_KEY, REGION_NAME, BUCKET, LOG_ROOT, SERVER_ID, IS_LOGGING
@@ -132,11 +136,11 @@ class Service():
   
   def burnup_container(self):
     # ! master, slave container를 깨웁니다.
-    self.print('BURNUP MASTER')
+    self.print('BURNUP MASTER', color='yellow')
     os.system('docker-compose -f /app/docker-compose.yml up -d --no-deps --no-build {}'.format(self.master['service_name']))
-    self.print('BURNUP SLAVE')
+    self.print('BURNUP SLAVE', color='yellow')
     os.system('docker-compose -f /app/docker-compose.yml up -d --no-deps --no-build {}'.format(self.slave['service_name']))
-    self.print('BURNUP ROLLBACK')
+    self.print('BURNUP ROLLBACK', color='yellow')
     os.system('docker-compose -f /app/docker-compose.yml up -d --no-deps --no-build {}'.format(self.rollback['service_name']))
 
   def get_container_name_list(self):
@@ -147,6 +151,7 @@ class Service():
       return self.registeredDict[container_name]
     else:
       return None
+
   def get_container_from_container_name(self, container_name):
     if (container_name in self.get_container_name_list()):
       container = None
@@ -163,30 +168,34 @@ class Service():
       
   def set_value(self, key, value, container_name='', level=''):
     if(level != ''):
-      if (level == "master"):
-        self.master[key] = value
-      elif (level == "slave"):
-        self.slave[key] = value
-      elif (level == "rollback"):
-        self.rollback[key] = value
+      level_target = getattr(self, level, None)
+      if level_target:
+        level_target[key] = value
+      else:
+        self.print (f"SET_VALUE LEVEL_TARGET 지정 오류 level:{level}")
     elif(container_name != ''):
-        if (self.get_level_from_container_name(container_name) == "master"):
-          self.master[key] = value
-        elif (self.get_level_from_container_name(container_name) == "slave"):
-          self.slave[key] = value
-        elif (self.get_level_from_container_name(container_name) == "rollback"):
-          self.rollback[key] = value
+        container_level = self.get_level_from_container_name(container_name)
+        container_target = getattr(self, container_level, None)
+        if container_target:
+          container_target[key] = value
         else:
-          self.print ("SET_VALUE 오류입니다.", key, value, container_name, level)
+          self.print(
+            f"SET_VALUE CONTAINER_TARGET 지정 오류 container_name:{container_name} container_level:{container_level}",
+            mode='error', color='red'
+          )
 
   def update_info(self, container_name, container_id, container_hash, container_image):
     level = self.get_level_from_container_name(container_name)
-    # self.print ("LEVEL : {} CONTAINER : {}".format( level, container_name))
-    if(level is not None):
+    if level:
       self.set_value('name', container_name, level=level)
       self.set_value('id', container_id, level=level)
       self.set_value('hash', container_hash, level=level)
       self.set_value('image', container_image, level=level)
+    else:
+      self.print(
+        f"UPDATE_INFO LEVEL값이 없습니다. container_name:{container_name} level:{level}", mode='error',
+        color='red'
+      )
 
   def repeat_checker(self, SERVICE_DICT):
     start_time = time.time()
@@ -200,7 +209,7 @@ class Service():
     self.check_health()
 
     if (DEBUG_MODE):
-      self.print("REPEAT_CHECKER SPENT {}s".format(int(time.time()-start_time)))
+      self.print(f"REPEAT_CHECKER [{self.name}] SPENT {int(time.time()-start_time)}s", color='magenta', color_attr=['bold'])
 
   def update_checker(self, SERVICE_DICT):
     global USE_CRON
@@ -217,7 +226,7 @@ class Service():
       self.print ('CHECK UPDATE CRON 바로 시작')
       self.check_update()
     if (DEBUG_MODE):
-      self.print("UPDATE_CHECKER SPENT {}s".format(int(time.time()-start_time)))
+      self.print(f"UPDATE_CHECKER SPENT {time.time()-start_time}s", color='magenta', color_attr=['bold'])
     
   def get_log(self):
     logPath = self.master['logPath']
@@ -250,13 +259,12 @@ class Service():
     for container_name in self.get_container_name_list():
       container = self.get_container_from_container_name(container_name)
       if(container is not None):
-        self.print (container_name)
         try:
           c = self.client.containers.get(container['id'])
         except:
           self.set_value('isRun', False, container_name=container_name)
           self.set_value('healthy', 'dead', container_name=container_name)
-          self.print ('update_health 컨테이너 죽은듯함. ( 넘기기 )')
+          self.print(f'<update_health> {container_name} 컨테이너 죽은듯함. ( 넘기기 )')
           continue
         try:
           # if (DEBUG_MODE):
@@ -284,77 +292,77 @@ class Service():
       else:
         self.print ('Container를 가져올수가 없습니다...')
 
+  def alert(self, message=''):
+    try:
+      reason = '[WARNING] 해당 서버 SLAVE와 MASTER CHECK가 FAIL로 알려졌습니다. ROLLBACK 으로 전환합니다.'
+      if(len(message) > 0):
+        reason = message
+      requests.get('https://api.kuuwang.com/alert?token=mVWUJZqVn65BubaC&server_name={}&server_ip={}&reason={}'.format(
+          SERVER_ID, requests.get('https://api.kuuwang.com/ip').text, reason))
+      self.print('긴급! 관리자 메세지 발송')
+    except:
+      pass
   def check_health(self):
     for container_name in self.get_container_name_list():
       container = self.get_container_from_container_name(container_name)
       level = self.get_level_from_container_name(container_name)
-      # self.print (container["name"], level, container['healthy'])
+      level_target = getattr(self, level, None)
       if (container['healthy'] == 'unhealthy'):
         if DEBUG_MODE:
-          self.print ("CONTAINER {}<{}> [{}] 가 HEALTHY 하지 않은이유.".format(container_name, level, container["fail"]))
+          self.print (f"CONTAINER {container_name}<{level}> [FAIL:{container['fail']}] 가 HEALTHY 하지 않은이유.")
           self.print (container["isRun"])
-          self.print(container["log"].split('\'}')[0])
+          self.print (container["log"].split('\'}')[0])
           self.print ("\n"*3)
 
-        if (level == "master" and not self.master["fail"]):
-          if DEBUG_MODE:
-            self.print (level, self.master["fail"])
-          self.change_nginx_env(self.slave)
-          self.try_restart(self.master)
-          self.master["fail"] = True
-        
-        if (level == "slave" and not self.slave["fail"]):
-          self.slave["fail"] = True
-          if(self.currentEnvironment[self.ENVDICT['TARGETCONTAINER']].strip().lower() != container_name.strip().lower()):
-            self.try_restart(self.slave)
-          else:
+        if(self.nowUpdating):
+          # ? 업데이트 진행중일경우 확인해야 될 내용
+          # ? 업데이트 진행중일때에는 업데이트 프로세스에 전적으로 모든걸 맞겨버리는 편으로.
+          self.print("현재 업데이트 진행중으로, healthChecking은 진행하지 않습니다.")
+        else:
+          # ? 업데이트 진행중이 아닐경우 확인해야 될 내용
+          change_target = None
+          if(level =="master"):
+            change_target = self.slave
+          elif(level == "slave"):
             if(self.master["fail"]):
-              self.change_nginx_env(self.rollback)
-              self.try_restart(self.master)
-              self.try_restart(self.slave)
-              try:
-                reason = '[WARNING] 해당 서버 SLAVE와 MASTER CHECK가 FAIL로 알려졌습니다. ROLLBACK 으로 전환합니다.'
-                requests.get('https://api.kuuwang.com/alert?token=mVWUJZqVn65BubaC&server_name={}&server_ip={}&reason={}'.format(SERVER_ID, requests.get('https://api.kuuwang.com/ip').text, reason))
-                self.print('긴급! 관리자 메세지 발송')
-              except:
-                pass
-              self.print ('긴급! 관리자 메세지 발송')
-        
-        if (level == "rollback" and not self.master["fail"] and self.slave["fail"]):
-          self.try_restart(self.rollback)
-        elif(level == "rollback" and (self.master["fail"] or self.slave["fail"])):
-          if (self.master["fail"] and self.slave["fail"]):
-            try:
-              reason = '[SUPER ALERT] 해당 서버의 ROLLBACK/MASTER/SLAVE 전부 FAIL 입니다. 빠른 확인이 필요합니다.'
-              requests.get('https://api.kuuwang.com/alert?token=mVWUJZqVn65BubaC&server_name={}&server_ip={}&reason={}'.format(SERVER_ID, requests.get('https://api.kuuwang.com/ip').text, reason))
-              self.print('개긴급! 관리자 메세지 발송')
-            except:
-              pass
-            self.print ('개긴급!')
+              change_target = self.rollback
+              self.alert('해당 서버 master, slave가 failed 입니다. rollback으로 전환합니다.')
+          if(change_target):
+            self.print(f"{level} 컨테이너에 문제발생으로 {'slave' if level == 'master' else 'rollback'} 컨테이너로 전환합니다.", mode="warning")
+            self.change_nginx_env(change_target)
+            self.try_restart(level_target)
+            level_target["fail"] = True
           else:
-            try:
-              reason = '[ALERT] 해당 서버 ROLLBACK 은 죽었으나 MASTER/SLAVE 중 하나는 살아있습니다. 5분내에 정상화되지 않을경우 확인이 필요합니다.'
-              requests.get('https://api.kuuwang.com/alert?token=mVWUJZqVn65BubaC&server_name={}&server_ip={}&reason={}'.format(
-                  SERVER_ID, requests.get('https://api.kuuwang.com/ip').text, reason))
-              self.print('좀긴급! 관리자 메세지 발송')
-            except:
-              pass
-            self.print ('좀긴급!')
+            if(level == "rollback"):
+              if(self.master["fail"] == False or self.slave["fail"] == False):
+                self.print(f"{level} 컨테이너에 문제가 발생하였지만, 정상 작동중으로, 재시작만 진행합니다.", color='yellow', color_attr=['bold', 'blink'])
+              else:
+                # ! master, slave 죽은 상태에서 rollback까지 죽음
+                self.print(f"[ALERT] 모든 서비스를 재시작 진행해보며, 타겟은 master로 변경합니다.", color='red', color_attr=['bold'])
+                self.alert('해당 서버 ALL CONTAINER FAILED')
+                self.change_nginx_env(self.master)
+                self.try_restart(self.rollback)
+                self.try_restart(self.master)
+                self.try_restart(self.slave)
+            else:
+              self.print(f"{level} 컨테이너 문제발생하였지만 정상 작동중으로, 재시작만 진행합니다.", color='yellow', color_attr=['bold', 'blink'])
+              self.try_restart(level_target)
       else:
-        if (level == "master"):
-          if(self.currentEnvironment[self.ENVDICT['TARGETCONTAINER']] != self.master['name']):
+        if level_target:
+          level_target["fail"] = False
+          if(level == "master" and (self.currentEnvironment[self.ENVDICT['TARGETCONTAINER']] != self.master['name'] and self.nowUpdating == False)):
+            # ! master가 에러없고, 업데이트가 진행중이지 않으며, 현재 nginx target이 master가 아닌경우.
+            # ? nginx 업데이트
+            self.print(f"MASTER CONTAINER가 정상으로 확인되어, 현재 타겟을 MASTER로 변경합니다.", color='red', color_attr=['bold'])
             self.change_nginx_env(self.master)
-          self.master["fail"] = False
-        elif (level == "slave"):
-          self.slave["fail"] = False
-        elif (level == "rollback"):
-          self.rollback["fail"] = False
+        else:
+          self.print(f'CHEK_HEALTH [337] LEVEL_TARGET Loading 에러. LEVEL : {level}', mode='warning')
           
   def force_update(self, container):
     os.system('docker-compose -f /app/docker-compose.yml up -d --no-deps --build {}'.format(container['name']))
 
   def change_nginx_env(self, container):
-    self.print ('call change_nginx [{}]'.format(container['name']))
+    self.print (f'call change_nginx [{container["name"]}]')
     SERVICE_DICT = self.SERVICE_DICT
     if(self.currentEnvironment[self.ENVDICT["TARGETCONTAINER"]].strip().lower() != container['name'].strip().lower()):
       self.currentEnvironment[self.ENVDICT['TARGETCONTAINER']] = container['name']
@@ -387,23 +395,22 @@ class Service():
   def _check_update(self, container):
     try:
       lat = self.client.images.get_registry_data(container['image'])
-      if DEBUG_MODE:
-        self.print(lat.id, container['last_hash'], container['image'])
-      
+      # if DEBUG_MODE:
+        # self.print(lat.id, container['last_hash'], container['image'])      
       if(''.join(lat.id).strip() == ''.join(container['last_hash']).strip()):
         if DEBUG_MODE:
-          self.print ("업데이트 없음..", container['name'])
+          self.print (f"{container['name']}업데이트 없음..")
         return False
       
       else:
         if DEBUG_MODE:
-          self.print("업데이트 존재!", container['name'])
+          self.print(f"{container['name']}업데이트 존재!!")
         container['new_hash'] = lat.id
         return True
 
     except Exception as E:
       self.print(E, mode='error')
-      self.print("업데이트 가져오는도중에 에러발생 다음 update check에서 확인", mode='error')
+      self.print(f"업데이트 가져오는도중에 에러발생 {container['name']} 다음 update check에서 확인", mode='error', color='red', color_attr=['bold', 'blink'])
       return False
 
   def check_update(self):
@@ -420,6 +427,7 @@ class Service():
     if DEBUG_MODE:
       self.print(update_Dict)
     if(update_Dict['rollback']):
+      self.nowUpdating = True
       if DEBUG_MODE:
         self.print('master {} slave {}'.format(self.master['healthy'], self.slave['healthy']))
       if(self.master['healthy'] == 'healthy' or self.slave['healthy'] == 'healthy'):
@@ -427,8 +435,10 @@ class Service():
         self.print(os.system('docker pull {}'.format(self.rollback['image'])))
         self.print(os.system('docker-compose -f /app/docker-compose.yml pull --no-parallel {}'.format(self.rollback['service_name'])))
         os.system('docker-compose -f /app/docker-compose.yml up -d --force-recreate --build --no-deps {}'.format(self.rollback['service_name']))
+      
     
     if(update_Dict['master']):
+      self.nowUpdating = True
       if DEBUG_MODE:
         self.print('master has update slave health:', self.slave['healthy'])
       if(self.slave['healthy'] == 'healthy'):
@@ -442,6 +452,7 @@ class Service():
         os.system('docker-compose -f /app/docker-compose.yml down --no-deps {} {}'.format(self.master['service_name'], self.slave['service_name']))
     
     if(update_Dict['slave']):
+      self.nowUpdating = True
       if DEBUG_MODE:
         self.print('slave has update master health:', self.master['healthy'])
       if(self.master['healthy'] == 'healthy'):
@@ -453,4 +464,6 @@ class Service():
       else:
         self.change_nginx_env(self.rollback)
         os.system('docker-compose -f /app/docker-compose.yml down --no-deps {} {}'.format(self.master['service_name'], self.slave['service_name']))
+    self.nowUpdating = False
+    
     

@@ -12,7 +12,7 @@ import atexit
 import io
 import threading
 import pycron
-   
+from termcolor import colored
 
 RUN_IN_DOCKER = os.environ.get('RUN_IN_DOCKER', False)
 DEBUG_MODE = (str(os.environ.get('DEBUG_MODE', 'no')).lower().count('yes') > 0)
@@ -87,7 +87,9 @@ def main_print(*args, **kwargs):
     except:
       print("Logging Error")
   if VERBOSE_MODE:
-    print(" ".join(map(str, args)))
+    color_pick = kwargs.get('color', 'cyan')
+    color_attr = kwargs.get('color_attr', ['bold'])
+    print(colored(" ".join(map(str, args)), color=color_pick, attrs=color_attr))
 
 
 
@@ -276,13 +278,17 @@ with open('/app/docker-compose-origin.yml', 'rt') as F:
     FO.write(composeData)
 
 if (CHECK_POOL):
+  print('\n'*5)
+  main_print('CHECK_POOL 모드로 업데이트 및 healthchecking은 실행되지않음을 유의해주시기 바랍니다.', color='red', color_attr=['bold', 'blink'])
+  print('\n'*5)
+  time.sleep(3)
   os.system("docker-compose -f /app/docker-compose.yml up --build")
 else:
   os.system("docker-compose -f /app/docker-compose.yml up --build -d")
 
 
-main_print ('\n'*100)
-main_print ('첫번째 도커 컨테이너가 온라인이 될때까지 반복 실행 시작')
+print ('\n'*100)
+main_print ('첫번째 도커 컨테이너가 온라인이 될때까지 반복 실행 시작', color_attr=['bold', 'blink'])
 
 REGISTERED_CONTAINER_KEYS = list(REGISTERED_CONTAINER_DICT.keys())
 count = 0
@@ -290,28 +296,31 @@ returnFlag = False
 while True:
   if(count > 60 or returnFlag):
     break
-  main_print ('{} 컨테이너 존재여부 확인 {}/60<최대>'.format(REGISTERED_CONTAINER_KEYS[0], count))
+  main_print ('{} 컨테이너 존재여부 확인 {}/60<최대>'.format(REGISTERED_CONTAINER_KEYS[0], count), color='yellow', color_attr=['blink'])
   for container in client.containers.list():
     container_name = container.name
     if(container_name.lower().count(REGISTERED_CONTAINER_KEYS[0].strip()) > 0):
-      main_print ('첫번째 컨테이너가 존재하고 시작됨을 감지하였으니 본 로직으로 돌아갑니다.')
+      main_print ('첫번째 컨테이너가 존재하고 시작됨을 감지하였으니 본 로직으로 돌아갑니다.', color='red', color_attr=['bold', 'blink'])
       time.sleep(1)
-      main_print ('\n'*100)
+      print ('\n'*100)
       returnFlag = True
       break
   count += 1
   time.sleep(1)
 
 for service in SERVICE_DICT.keys():
-  main_print ("SERVICE {}의 MASTER, SLAVE, ROLLBACK를 시작합니다.".format(service))
+  main_print(f"SERVICE {service}의 MASTER, SLAVE, ROLLBACK를 시작합니다.",
+    color_attr=['bold', 'blink'])
   SERVICE_DICT[service].burnup_container()
 
-main_print ("BURNUP!!! {}초 대기".format(BURNUP_TIME))
+main_print ("BURNUP!!! {}초 대기".format(BURNUP_TIME), color_attr=['bold'])
 time.sleep(BURNUP_TIME)
 
+main_print('=== DOCKER SERVICE 목록 추출 ===', color_attr=['blink'])
 for container in client.containers.list():
   container_name = container.name
   if container_name in REGISTERED_CONTAINER_KEYS:
+    main_print(f'container_name:[{container_name}]에 대한 기본정보 등록 및 관리 Class 생성', color_attr=['bold'])
     container_image = container.attrs['Config']['Image']
     last_hash = (client.images.get_registry_data(container_image)).id
     SERVICE_MASTER_NAME = REGISTERED_CONTAINER_DICT[container_name]
@@ -322,14 +331,14 @@ def repeat_checking():
     try:
       SERVICE_DICT[SERVICE_KEY].repeat_checker(SERVICE_DICT)
     except Exception as E:
-      main_print('repeat_checking에서 에러', mode='error')
+      main_print(f'repeat_checking에러 SERVICE_KEY:{SERVICE_KEY}', mode='error', color='red', color_attr=['bold'])
       main_print(E, mode='error')
 def update_checking():
   for SERVICE_KEY in SERVICE_DICT.keys():
     try:
       SERVICE_DICT[SERVICE_KEY].update_checker(SERVICE_DICT)
     except Exception as E:
-      main_print('update_checking에서 에러', mode='error')
+      main_print(f'update_checking에러 SERVICE_KEY:{SERVICE_KEY}', mode='error', color='red', color_attr=['bold'])
       main_print(E, mode='error')
 
 def repeat_update_docker():
@@ -354,10 +363,24 @@ next_container_check = time.time() + SLEEP_TIME
 next_repeat_check = time.time() + SLEEP_TIME
 next_update_check = (time.time() + (SLEEP_TIME * UPDATE_REPEAT_INTERVAL)) if USE_CRON == False else time.time() + (SLEEP_TIME * 2 + 3)
 
+main_print('도커 정보 업데이트 (MAIN_PROCESS)', color_attr=['bold', 'blink'])
 repeat_update_docker()
 #! docker 정보를 업데이트 해주도록 ( 뭐가 먼저 실행될지 모르니까 !)
+main_print('첫번째 REPEAT CHECK 실행', color_attr=['bold', 'blink'])
 repeat_checking()
 #! docker 정보 다음으로는 repeat checking 업데이트!
+
+progress = 0
+while True:
+  import random
+  if(progress > 100):
+    progress = 100
+  print(colored(f'----- LOADING {progress}% -----', color='green', attrs=['bold']))
+  if(progress == 100):
+    main_print('START MAIN ROUTINE')
+    break
+  progress += random.randint(0, 20)
+  time.sleep((random.randint(0, 100) / 100))
 
 while True:
   try:
