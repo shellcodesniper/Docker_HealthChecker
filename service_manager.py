@@ -226,7 +226,7 @@ class Service():
       self.print ('CHECK UPDATE CRON 바로 시작')
       self.check_update()
     if (DEBUG_MODE):
-      self.print(f"UPDATE_CHECKER SPENT {time.time()-start_time}s", color='magenta', color_attr=['bold'])
+      self.print(f"UPDATE_CHECKER SPENT [{self.name}] {time.time()-start_time}s", color='magenta', color_attr=['bold'])
     
   def get_log(self):
     logPath = self.master['logPath']
