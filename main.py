@@ -75,7 +75,7 @@ def main_print(*args, **kwargs):
   if IS_LOGGING:
     try:
       with io.StringIO() as F:
-        print(" ".join(map(str, args)), **kwargs, file=F)
+        print(" ".join(map(str, args)), file=F)
         output = F.getvalue()
         mode = kwargs.get('mode', 'debug')
         if(mode == 'debug'):
@@ -87,7 +87,7 @@ def main_print(*args, **kwargs):
     except:
       print("Logging Error")
   if VERBOSE_MODE:
-    print(" ".join(map(str, args)), **kwargs)
+    print(" ".join(map(str, args)))
 
 
 
@@ -121,14 +121,14 @@ def exit_handler():
     main_print('NGINX 사용함으로 설정되었으므로, NGINX 컨테이너도 초기화 합니다.')
     try:
       os.system("docker kill nginx  > /dev/null 2>&1")
-      os.system("docker rm nginx  > /dev/null 2>&1")
+      # os.system("docker rm nginx  > /dev/null 2>&1")
     except:
       pass
   for service in config["컨테이너"]:
     SERVICE_CONTAINER_NAME = str(config["컨테이너"][service])
     try:
       os.system("docker kill {}  > /dev/null 2>&1".format(SERVICE_CONTAINER_NAME))
-      os.system("docker rm {}  > /dev/null 2>&1".format(SERVICE_CONTAINER_NAME))
+      # os.system("docker rm {}  > /dev/null 2>&1".format(SERVICE_CONTAINER_NAME))
     except:
       pass
   main_print('docker compose 종료')
@@ -136,13 +136,13 @@ def exit_handler():
     os.system("docker-compose -f /app/docker-compose.yml down")
   except:
     pass
-  main_print ('다음 업데이트를 위하여 이미지 정리')
-  try:
-    os.system("docker image prune -a -f")
-  except:
-    pass
-  if (IS_LOGGING):
-    logging.shutdown()
+  # main_print ('다음 업데이트를 위하여 이미지 정리')
+  # try:
+  #   os.system("docker image prune -a -f")
+  # except:
+  #   pass
+  # if (IS_LOGGING):
+  #   logging.shutdown()
 
 
 atexit.register(exit_handler)
@@ -239,10 +239,11 @@ for service in config["컨테이너"]:
     REGISTERED_CONTAINER_DICT[SERVICE_CONTAINER_NAME] = SERVICE_MASTER_NAME
 
 
-  main_print ("서비스가 이미 실행중 혹은 컨테이너에 존재하는경우, 죽이고 삭제 진행. 컨테이너 이름 : [{}]".format(SERVICE_CONTAINER_NAME))
+  # main_print ("서비스가 이미 실행중 혹은 컨테이너에 존재하는경우, 죽이고 삭제 진행. 컨테이너 이름 : [{}]".format(SERVICE_CONTAINER_NAME))
+  main_print ("서비스가 이미 실행중 혹은 컨테이너에 존재하는경우, kill. 컨테이너 이름 : [{}]".format(SERVICE_CONTAINER_NAME))
   try:
     os.system("docker kill {} > /dev/null 2>&1".format(SERVICE_CONTAINER_NAME))
-    os.system("docker rm {}  > /dev/null 2>&1".format(SERVICE_CONTAINER_NAME))
+    # os.system("docker rm {}  > /dev/null 2>&1".format(SERVICE_CONTAINER_NAME))
   except:
     pass
 
@@ -251,10 +252,10 @@ if(USE_NGINX):
   main_print ('NGINX 사용함으로 설정되었으므로, NGINX 컨테이너도 초기화 합니다.')
   try:
     os.system("docker kill nginx  > /dev/null 2>&1")
-    os.system("docker rm nginx  > /dev/null 2>&1")
+    # os.system("docker rm nginx  > /dev/null 2>&1")
   except:
     pass
-os.system("docker image prune -a -f")
+# os.system("docker image prune -a -f")
 
 
 # check_call(['docker-compose', '-f /app/docker-compose.yml', 'up'], stdout=DEVNULL, stderr=STDOUT)

@@ -84,7 +84,7 @@ class Service():
     global IS_LOGGING, DEBUG_MODE, VERBOSE_MODE
     if IS_LOGGING:
       with io.StringIO() as F:
-        print(" ".join(map(str, args)), **kwargs, file=F)
+        print(" ".join(map(str, args)), file=F)
         output = F.getvalue()
         mode = kwargs.get('mode', 'debug')
         if(mode == 'debug'):
@@ -94,7 +94,7 @@ class Service():
         elif(mode == 'error'):
           self.MAIN_LOGGER.error(output)
     if VERBOSE_MODE:
-      print(" ".join(map(str, args)), **kwargs)
+      print(" ".join(map(str, args)))
   
   def register_container(self, level='none', container_name='none', service_name='none'):
     global ACCESS_KEY, FORMATTER, SECRET_KEY, REGION_NAME, BUCKET, LOG_ROOT, SERVER_ID, IS_LOGGING
