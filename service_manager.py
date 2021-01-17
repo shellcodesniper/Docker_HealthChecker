@@ -82,6 +82,9 @@ class Service():
 
     self.print (self.ENVDICT, self.DEFAULTDICT)
   
+  def docker_api_reassign(self, client):
+    self.client = client
+  
   def print(self, *args, **kwargs):
     global IS_LOGGING, DEBUG_MODE, VERBOSE_MODE
     if IS_LOGGING:
@@ -140,8 +143,8 @@ class Service():
     os.system('docker-compose -f /app/docker-compose.yml up -d --no-deps --no-build {}'.format(self.master['service_name']))
     self.print('BURNUP SLAVE', color='yellow')
     os.system('docker-compose -f /app/docker-compose.yml up -d --no-deps --no-build {}'.format(self.slave['service_name']))
-    self.print('BURNUP ROLLBACK', color='yellow')
-    os.system('docker-compose -f /app/docker-compose.yml up -d --no-deps --no-build {}'.format(self.rollback['service_name']))
+    self.print('BURNUP ROLLBACK ( NO START )', color='yellow')
+    os.system('docker-compose -f /app/docker-compose.yml up --no-start --no-deps --no-build {}'.format(self.rollback['service_name']))
 
   def get_container_name_list(self):
     return list(set(self.registeredDict.keys()))
@@ -247,13 +250,16 @@ class Service():
       with open(logPath, 'wt') as F:
         F.write('')
 
-    logPath = self.rollback['logPath']
-    if(logPath != ''):
-      with open(logPath, 'rt') as F:
-        for row in F.readlines():
-          self.rollback['logger'].debug(row)
-      with open(logPath, 'wt') as F:
-        F.write('')
+    try:
+      logPath = self.rollback['logPath']
+      if(logPath != ''):
+        with open(logPath, 'rt') as F:
+          for row in F.readlines():
+            self.rollback['logger'].debug(row)
+        with open(logPath, 'wt') as F:
+          F.write('')
+    except:
+      print("아직 rollback 실행이 안된듯합니다.")
 
   def update_health(self):
     for container_name in self.get_container_name_list():
@@ -335,7 +341,7 @@ class Service():
           else:
             if(level == "rollback"):
               if(self.master["fail"] == False or self.slave["fail"] == False):
-                self.print(f"{level} 컨테이너에 문제가 발생하였지만, 정상 작동중으로, 재시작만 진행합니다.", color='yellow', color_attr=['bold', 'blink'])
+                self.print(f"{level} 컨테이너는 실행이 안되었지만, master와 slave가 살아있으므로 정상입니다.", color='yellow', color_attr=['bold', 'blink'])
               else:
                 # ! master, slave 죽은 상태에서 rollback까지 죽음
                 self.print(f"[ALERT] 모든 서비스를 재시작 진행해보며, 타겟은 master로 변경합니다.", color='red', color_attr=['bold'])

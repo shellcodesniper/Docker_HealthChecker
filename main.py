@@ -309,8 +309,7 @@ while True:
   time.sleep(1)
 
 for service in SERVICE_DICT.keys():
-  main_print(f"SERVICE {service}의 MASTER, SLAVE, ROLLBACK를 시작합니다.",
-    color_attr=['bold', 'blink'])
+  main_print(f"SERVICE {service}의 MASTER, SLAVE, ROLLBACK를 시작합니다.",color_attr=['bold', 'blink'])
   SERVICE_DICT[service].burnup_container()
 
 main_print ("BURNUP!!! {}초 대기".format(BURNUP_TIME), color_attr=['bold'])
@@ -342,6 +341,7 @@ def update_checking():
       main_print(E, mode='error')
 
 def repeat_update_docker():
+  global client
   try:
     for container in client.containers.list():
       container_name = container.name
@@ -358,6 +358,11 @@ def repeat_update_docker():
   except Exception as E:
     main_print ("CONTAINER UPDATE_INFO ERROR")
     main_print (E)
+    main_print ("UPDATE_INFO 오류는 docker api 쪽 문제가 다분함,\n 도커 접속정보 재설정 진행.", color='red', color_attr=['bold', 'blink'])
+    client = docker.DockerClient(base_url=str(config['도커설정']['접속정보']))
+    for service in SERVICE_DICT.keys():
+      main_print(f"SERVICE {service}의 MASTER, SLAVE, ROLLBACK를 시작합니다.", color_attr=['bold', 'blink'])
+      SERVICE_DICT[service].docker_api_reassign(client)
 
 next_container_check = time.time() + SLEEP_TIME
 next_repeat_check = time.time() + SLEEP_TIME
