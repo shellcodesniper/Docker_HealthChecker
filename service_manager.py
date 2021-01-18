@@ -106,33 +106,15 @@ class Service():
   def register_container(self, level='none', container_name='none', service_name='none'):
     global ACCESS_KEY, FORMATTER, SECRET_KEY, REGION_NAME, BUCKET, LOG_ROOT, SERVER_ID, IS_LOGGING
     level = level.lower()
-    if(level.count('master') > 0):
+    level_target = getattr(self, level, None)
+    if level_target:
       if DEBUG_MODE:
-        self.print("서비스이름 <{}> 에 MASTER LEVEL 컨테이너 등록 [{}]".format(
-          self.name, container_name))
-      self.registeredDict[container_name] = "master"
-      self.master['service_name'] = service_name
+        self.print(f"서비스이름 <{level.upper()}> 에 {level.upper()} LEVEL 컨테이너 등록 [{container_name}]")
+      self.registeredDict[container_name] = level
+      level_target['service_name'] = service_name
       if (IS_LOGGING):
-        self.master['logger'] = logger.create_logger("{}_{}".format(self.name, level), FORMATTER, ACCESS_KEY, SECRET_KEY, REGION_NAME, bucket=BUCKET, log_name='{}_log'.format(level),
-                                                     log_root=LOG_ROOT, server_id=SERVER_ID, service_name=os.path.join(self.name, level), max_file_size_bytes=MAX_FILE_SIZE_BYTES, time_rotation=TIME_ROTATION)
-    elif(level.count('slave') > 0):
-      if DEBUG_MODE:
-        self.print("서비스이름 <{}> 에 SLAVE LEVEL 컨테이너 등록 [{}]".format(
-          self.name, container_name))
-      self.registeredDict[container_name] = "slave"
-      self.slave['service_name'] = service_name
-      if (IS_LOGGING):
-        self.slave['logger'] = logger.create_logger("{}_{}".format(self.name, level), FORMATTER, ACCESS_KEY, SECRET_KEY, REGION_NAME, bucket=BUCKET, log_name='{}_log'.format(level),
-                                                    log_root=LOG_ROOT, server_id=SERVER_ID, service_name=os.path.join(self.name, level), max_file_size_bytes=MAX_FILE_SIZE_BYTES, time_rotation=TIME_ROTATION)
-    elif(level.count('rollback') > 0):
-      if DEBUG_MODE:
-        self.print("서비스이름 <{}> 에 ROLLBACK LEVEL 컨테이너 등록 [{}]".format(
-          self.name, container_name))
-      self.registeredDict[container_name] = "rollback"
-      self.rollback['service_name'] = service_name
-      if (IS_LOGGING):
-        self.rollback['logger'] = logger.create_logger("{}_{}".format(self.name, level), FORMATTER, ACCESS_KEY, SECRET_KEY, REGION_NAME, bucket=BUCKET, log_name='{}_log'.format(level),
-                                                   log_root=LOG_ROOT, server_id=SERVER_ID, service_name=os.path.join(self.name, level), max_file_size_bytes=MAX_FILE_SIZE_BYTES, time_rotation=TIME_ROTATION)
+        level_target['logger'] = logger.create_logger(f"{self.name}_{level}", FORMATTER, ACCESS_KEY, SECRET_KEY, REGION_NAME, bucket=BUCKET, log_name=f'{level}_log',
+                                                     log_root=LOG_ROOT, server_id=SERVER_ID, service_name=os.path.join(self.name, level), max_file_size_bytes=MAX_FILE_SIZE_BYTES, time_rotation=TIME_ROTATION)    
     else:
       self.print('오류입니다. 컨테이너 level은 master, slave, rollback 중 하나여야만 합니다. config.ini 파일을 확인하여주세요.')
       os._exit(0)
