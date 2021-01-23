@@ -297,7 +297,9 @@ class Service():
       container = self.get_container_from_container_name(container_name)
       level = self.get_level_from_container_name(container_name)
       level_target = getattr(self, level, None)
-      if (container['healthy'] == 'unhealthy'):
+      healthy = container['healthy']
+      self.print (f"CONTAINER : {container_name} HEALTHY : {healthy}", color="red", color_attr=["bold"])
+      if (healthy == 'unhealthy' or healthy == 'starting'):
         if DEBUG_MODE:
           self.print (f"CONTAINER {container_name}<{level}> [FAIL:{container['fail']}] 가 HEALTHY 하지 않은이유.")
           self.print (container["isRun"])
@@ -312,20 +314,27 @@ class Service():
           # ? 업데이트 진행중이 아닐경우 확인해야 될 내용
           change_target = None
           if(level =="master"):
-            change_target = self.slave
-          elif(level == "slave"):
-            if(self.master["fail"]):
+            if(self.slave["healthy"] == "healthy"): # slave가 건강할경우 변경
+              change_target = self.slave
+            else:
               change_target = self.rollback
-              self.alert('해당 서버 master, slave가 failed 입니다. rollback으로 전환합니다.')
+          elif(level == "slave"):
+            if(self.master["healthy"] == "healthy"):
+              self.change_target = self.master
+            else:
+              change_target = self.rollback
+              if(self.currentNginxTarget != self.rollback['name']):
+                self.alert('해당 서버 master, slave가 failed 입니다. rollback으로 전환합니다.')
           if(change_target):
-            self.print(f"{level} 컨테이너에 문제발생으로 {'slave' if level == 'master' else 'rollback'} 컨테이너로 전환합니다.", mode="warning")
+            self.print(f"{level} 컨테이너에 문제발생으로 {change_target['name']} 컨테이너로 전환합니다.", mode="warning")
             self.change_nginx_env(change_target)
             self.try_restart(level_target)
             level_target["fail"] = True
           else:
             if(level == "rollback"):
-              if(self.master["fail"] == False or self.slave["fail"] == False):
-                self.print(f"{level} 컨테이너는 실행이 안되었지만, master와 slave가 살아있으므로 정상입니다.", color='yellow', color_attr=['bold', 'blink'])
+              if(self.master["healthy"] != "healthy" or self.slave["healthy"] != "healthy"):
+                self.print(f"{level} 컨테이너는 에러지만, master와 slave가 살아있으므로 정상입니다. rollback 재시작을 진행합니다.", color='yellow', color_attr=['bold', 'blink'])
+                self.try_restart(self.rollback)
               else:
                 # ! master, slave 죽은 상태에서 rollback까지 죽음
                 self.print(f"[ALERT] 모든 서비스를 재시작 진행해보며, 타겟은 master로 변경합니다.", color='red', color_attr=['bold'])
@@ -337,7 +346,22 @@ class Service():
             else:
               self.print(f"{level} 컨테이너 문제발생하였지만 정상 작동중으로, 재시작만 진행합니다.", color='yellow', color_attr=['bold', 'blink'])
               self.try_restart(level_target)
+
+      elif (healthy == 'healthy'):
+        change_target = None
+
+        if level == 'master':
+          change_target = level_target
+
+        elif (level == 'slave' and self.currentNginxTarget != self.master['name']):
+          change_target = level_target
+
+        if change_target:
+          self.print(f'컨테이너 정상화 되어, {level}로 변경합니다.')
+          self.change_nginx_env(change_target)
+
       else:
+        #! healthy / unhealthy / starting 이 아닌경우
         if level_target:
           level_target["fail"] = False
           if(level == "master" and (self.currentEnvironment[self.ENVDICT['TARGETCONTAINER']] != self.master['name'] and self.nowUpdating == False)):
@@ -443,7 +467,7 @@ class Service():
         os.system('docker-compose -f /app/docker-compose.yml up -d --force-recreate --build --no-deps {}'.format(self.master['service_name']))
       else:
         self.change_nginx_env(self.rollback)
-        os.system('docker-compose -f /app/docker-compose.yml down --no-deps {} {}'.format(self.master['service_name'], self.slave['service_name']))
+        os.system('docker-compose -f /app/docker-compose.yml up -d --force-recreate --build --no-deps {} {}'.format(self.master['service_name'], self.slave['service_name']))
     
     if(update_Dict['slave']):
       self.nowUpdating = True
@@ -457,7 +481,7 @@ class Service():
         os.system('docker-compose -f /app/docker-compose.yml up -d --force-recreate --build --no-deps {}'.format(self.slave['service_name']))
       else:
         self.change_nginx_env(self.rollback)
-        os.system('docker-compose -f /app/docker-compose.yml down --no-deps {} {}'.format(self.master['service_name'], self.slave['service_name']))
+        os.system('docker-compose -f /app/docker-compose.yml up -d --force-recreate --build --no-deps {} {}'.format(self.master['service_name'], self.slave['service_name']))
     self.nowUpdating = False
     
     
