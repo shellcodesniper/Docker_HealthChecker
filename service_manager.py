@@ -67,6 +67,8 @@ class Service():
     self.MAIN_LOGGER = logger
     self.nowUpdating = False
 
+    self.currentNginxTarget = '' #! 현재 nginx가 target으로 가르키고 있는 container Name
+
     self.updateCheckInterval = checkInterval
     self.updateCheckCounter = self.updateCheckInterval
 
@@ -350,7 +352,11 @@ class Service():
     os.system('docker-compose -f /app/docker-compose.yml up -d --no-deps --build {}'.format(container['name']))
 
   def change_nginx_env(self, container):
-    self.print (f'call change_nginx [{container["name"]}]')
+    self.print (f'call change_nginx [{container["name"]}]', color="red", color_attr=["bold"])
+    if(self.currentNginxTarget == container["name"]):
+      self.print(f"NGINX 업데이트 대상 {container['name']}은 이미 Nginx Current Target 이므로, 변경하지 않습니다.", color="cyan", color_attr=["bold"])
+      return
+    self.currentNginxTarget = container["name"]
     SERVICE_DICT = self.SERVICE_DICT
     if(self.currentEnvironment[self.ENVDICT["TARGETCONTAINER"]].strip().lower() != container['name'].strip().lower()):
       self.currentEnvironment[self.ENVDICT['TARGETCONTAINER']] = container['name']
