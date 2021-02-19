@@ -127,8 +127,8 @@ class Service():
     os.system('docker-compose -f /app/docker-compose.yml up -d --no-deps --no-build {}'.format(self.master['service_name']))
     self.print('BURNUP SLAVE', color='yellow')
     os.system('docker-compose -f /app/docker-compose.yml up -d --no-deps --no-build {}'.format(self.slave['service_name']))
-    self.print('BURNUP ROLLBACK ( NO START )', color='yellow')
-    os.system('docker-compose -f /app/docker-compose.yml up --no-start --no-deps --no-build {}'.format(self.rollback['service_name']))
+    self.print('BURNUP ROLLBACK', color='yellow')
+    os.system('docker-compose -f /app/docker-compose.yml up --no-deps --no-build {}'.format(self.rollback['service_name']))
 
   def get_container_name_list(self):
     return list(set(self.registeredDict.keys()))
