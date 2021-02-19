@@ -332,7 +332,7 @@ class Service():
             level_target["fail"] = True
           else:
             if(level == "rollback"):
-              if(self.master["healthy"] != "healthy" or self.slave["healthy"] != "healthy"):
+              if(self.master["healthy"] == "healthy" or self.slave["healthy"] == "healthy"):
                 self.print(f"{level} 컨테이너는 에러지만, master와 slave가 살아있으므로 정상입니다. rollback 재시작을 진행합니다.", color='yellow', color_attr=['bold', 'blink'])
                 self.try_restart(self.rollback)
               else:
