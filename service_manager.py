@@ -27,6 +27,7 @@ MAX_FILE_SIZE_BYTES = 100*1024**2
 TIME_ROTATION = 12*60*60
 HEALTHCHECKER_LOGNAME = 'HEALTHCHECKER'
 MAIN_LOGGER = None
+lastAlertTime = time.time() - 300
 
 if (IS_LOGGING):
   BUCKET = str(config["LOGGING"]["BUCKET"].strip())
@@ -283,15 +284,19 @@ class Service():
         self.print ('Container를 가져올수가 없습니다...')
 
   def alert(self, message=''):
-    try:
-      reason = '[WARNING] 해당 서버 SLAVE와 MASTER CHECK가 FAIL로 알려졌습니다. ROLLBACK 으로 전환합니다.'
-      if(len(message) > 0):
-        reason = message
-      requests.get('https://api.kuuwang.com/alert?token=mVWUJZqVn65BubaC&server_name={}&server_ip={}&reason={}'.format(
-          SERVER_ID, requests.get('https://api.kuuwang.com/ip').text, reason))
-      self.print('긴급! 관리자 메세지 발송')
-    except:
-      pass
+    global lastAlertTime
+    now = time.time()
+    if(now-lastAlertTime > 300):
+      try:
+        reason = '[WARNING] 해당 서버 SLAVE와 MASTER CHECK가 FAIL로 알려졌습니다. ROLLBACK 으로 전환합니다.'
+        if(len(message) > 0):
+          reason = message
+        requests.get('https://api.kuuwang.com/alert?token=mVWUJZqVn65BubaC&server_name={}&server_ip={}&reason={}'.format(
+            SERVER_ID, requests.get('https://api.kuuwang.com/ip').text, reason))
+        self.print('긴급! 관리자 메세지 발송')
+      except:
+        pass
+      lastAlertTime = now
   def check_health(self):
     for container_name in self.get_container_name_list():
       container = self.get_container_from_container_name(container_name)
