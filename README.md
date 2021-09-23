@@ -1,4 +1,6 @@
 # DOCKER ZERO DOWNTIME DEPLOYMENT
+[![wakatime](https://wakatime.com/badge/github/shellcodesniper/Docker_HealthChecker.svg)](https://wakatime.com/badge/github/shellcodesniper/Docker_HealthChecker)
+
 `by KUUWANGE - admin@kuuwang.com`
 
 Docker MASTER / SLAVE / ROLLBACK MANAGER
